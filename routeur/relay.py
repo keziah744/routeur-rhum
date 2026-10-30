@@ -128,6 +128,8 @@ def parse_message(msg: dict, cfg: dict, codes: dict, sail_names: list[str]) -> d
     if abs(received - sent) > MAX_SKEW_S:
         log.warning("message %s : heure d'envoi incohérente (rejeu ?), ignoré", msg.get("id"))
         return None
+    if body.get("action") == "recalcul":  # bouton « Recalculer » : pas de position, juste un nouveau calcul
+        return {"boat": boat, "time": min(sent, received), "recalc": True}
     try:
         pos = {"boat": boat, "time": min(sent, received), "lat": parse_coord(body["lat"], True),
                "lon": parse_coord(body["lon"], False), "gate": int(body.get("porte", 1))}
@@ -161,13 +163,17 @@ def relay(cfg: dict, sail_names: list[str], get=http_get) -> list[str]:
         log.warning("relais ntfy injoignable : %s", exc)
         return []
     latest: dict[str, dict] = {}
+    recalc: set[str] = set()
     for m in msgs:
         pos = parse_message(m, cfg, codes, sail_names)
-        if pos and (pos["boat"] not in latest or pos["time"] >= latest[pos["boat"]]["time"]):
+        if pos and pos.get("recalc"):
+            recalc.add(pos["boat"])
+            log.info("[%s] recalcul demandé depuis la page", pos["boat"])
+        elif pos and (pos["boat"] not in latest or pos["time"] >= latest[pos["boat"]]["time"]):
             latest[pos["boat"]] = pos
     for boat, pos in latest.items():
         write_json(position_file(boat), {k: v for k, v in pos.items() if k != "boat"})
         log.info("[%s] nouvelle position reçue : %.4f, %.4f", boat, pos["lat"], pos["lon"])
     if msgs:
         write_json(state_p, {"last_id": msgs[-1]["id"], "last_time": msgs[-1].get("time")})
-    return sorted(latest)
+    return sorted(set(latest) | recalc)

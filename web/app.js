@@ -204,8 +204,8 @@ function renderNow() {
   if (S?.route?.state === "calcul") p.push(`<p class="warn">Nouveau calcul en cours (environ 3 min)…</p>`);
   const pend = pending();
   if (pend) p.push((now / 1000 - pend.t > 1800)
-    ? `<p class="warn">Position envoyée ${fmtT(new Date(pend.t * 1000).toISOString())}, toujours pas de nouvelle route après 30 min. Vérifie le code et renvoie-la.</p>`
-    : `<p class="warn">Position envoyée ${fmtT(new Date(pend.t * 1000).toISOString())} : nouvelle route en préparation (5 à 15 min).</p>`);
+    ? `<p class="warn">${pend.what || "Position envoyée"} ${fmtT(new Date(pend.t * 1000).toISOString())}, toujours pas de nouvelle route après 30 min. Réessaie.</p>`
+    : `<p class="warn">${pend.what || "Position envoyée"} ${fmtT(new Date(pend.t * 1000).toISOString())} : nouvelle route en préparation (5 à 15 min).</p>`);
   if (now < start) {
     p.push(`<p class="lead">Départ dans <b>${until(start - now)}</b> · ${fmtT(new Date(start).toISOString())}</p>`);
     p.push(`<p><b>Rien à faire pour l'instant.</b> La route se recalcule toute seule à chaque nouvelle météo (4 fois par jour).</p>`);
@@ -408,15 +408,8 @@ function drawBoat() {
 async function detectApi() {
   try { const r = await fetch("/api/ping", { cache: "no-store" }); state.api = r.ok; } catch { state.api = false; }
   $("#actions").hidden = !state.api;
-  // Version publiée sur GitHub Pages : les actions passent par les formulaires GitHub Actions.
-  const gh = location.hostname.match(/^([^.]+)\.github\.io$/);
-  if (!state.api && gh) {
-    const repo = location.pathname.split("/").filter(Boolean)[0] || "";
-    const base = `https://github.com/${gh[1]}/${repo}/actions/workflows`;
-    $("#gh-pos").href = `${base}/position.yml`;
-    $("#gh-route").href = `${base}/route.yml`;
-    $("#gh").hidden = false;
-  }
+  // Version publiée sur GitHub Pages : position et recalcul passent par le relais ntfy (code du bateau).
+  $("#gh").hidden = state.api || !/\.github\.io$/.test(location.hostname);
   $("#relay").hidden = state.api || !state.topic;
 }
 function fillForm() {
@@ -551,28 +544,39 @@ function relayPreview() {
   $("#relay-preview").textContent = f.lat.value && f.lon.value
     ? (Number.isNaN(lat) || Number.isNaN(lon) ? "Position illisible" : `Compris : ${latS(lat)}  ${lonS(lon)}`) : "";
 }
-async function sendPosition(e) {
-  e.preventDefault();
-  const f = e.target, msg = $("#relay-msg"), boat = state.boats.find((b) => b.id === state.boat);
-  const lat = parseGame(f.lat.value, true), lon = parseGame(f.lon.value, false), code = normCode(f.code.value);
-  if (Number.isNaN(lat) || Number.isNaN(lon)) { msg.textContent = "Latitude ou longitude illisible."; return; }
-  if (lat < 5 || lat > 55 || lon < -70 || lon > 5) { msg.textContent = "Cette position est hors du parcours : vérifie N/S et E/W."; return; }
-  if (!boat?.check) { msg.textContent = "L'envoi n'est pas encore activé pour ce bateau (code à régler par Keziah)."; return; }
-  if (!globalThis.crypto?.subtle) { msg.textContent = "Ce navigateur ne permet pas l'envoi (page non sécurisée)."; return; }
-  if ((await hmacHex(code, `routeur-rhum:${boat.id}`)).slice(0, 8) !== boat.check) { msg.textContent = "Code incorrect."; return; }
+// Vérifie le code tapé, signe le message et le publie. Renvoie true si l'envoi a réussi.
+async function sendSigned(fields, btn, done) {
+  const f = $("#relay-form"), msg = $("#relay-msg"), boat = state.boats.find((b) => b.id === state.boat);
+  const code = normCode(f.code.value);
+  if (!boat?.check) { msg.textContent = "L'envoi n'est pas encore activé pour ce bateau (code à régler par Keziah)."; return false; }
+  if (!globalThis.crypto?.subtle) { msg.textContent = "Ce navigateur ne permet pas l'envoi (page non sécurisée)."; return false; }
+  if (!code) { msg.textContent = "Tape d'abord le code du bateau."; f.code.focus(); return false; }
+  if ((await hmacHex(code, `routeur-rhum:${boat.id}`)).slice(0, 8) !== boat.check) { msg.textContent = "Code incorrect."; return false; }
   const t = Date.now() / 1000;
-  const data = JSON.stringify({ bateau: boat.id, lat, lon, voile: f.sail.value, porte: +f.gate.value, twa: f.twa.value.trim(), t });
-  const btn = f.querySelector("button[type=submit]"); btn.disabled = true; msg.textContent = "Envoi…";
+  const data = JSON.stringify({ bateau: boat.id, ...fields, t });
+  btn.disabled = true; msg.textContent = "Envoi…";
   try {
     const r = await fetch(`https://ntfy.sh/${state.topic}`, { method: "POST", body: JSON.stringify({ data, sig: await hmacHex(code, data) }) });
     if (!r.ok) throw new Error(`erreur ${r.status}`);
     store.set(`code-${boat.id}`, f.keep.checked ? f.code.value : "");
-    store.set(`pending-${boat.id}`, JSON.stringify({ t, lat, lon }));
-    msg.textContent = `Position ${latS(lat)} ${lonS(lon)} envoyée. Nouvelle route dans 5 à 15 min : la page se met à jour toute seule.`;
-    f.lat.value = ""; f.lon.value = ""; f.twa.value = ""; relayPreview(); renderNow();
-  } catch (err) { msg.textContent = `Envoi impossible (${err.message}). Vérifie la connexion et réessaie.`; }
+    store.set(`pending-${boat.id}`, JSON.stringify({ t, what: fields.action ? "Recalcul demandé" : "Position envoyée" }));
+    msg.textContent = `${done} Nouvelle route dans 5 à 15 min : la page se met à jour toute seule.`;
+    renderNow();
+    return true;
+  } catch (err) { msg.textContent = `Envoi impossible (${err.message}). Vérifie la connexion et réessaie.`; return false; }
   finally { btn.disabled = false; }
 }
+async function sendPosition(e) {
+  e.preventDefault();
+  const f = e.target, lat = parseGame(f.lat.value, true), lon = parseGame(f.lon.value, false);
+  const msg = $("#relay-msg");
+  if (Number.isNaN(lat) || Number.isNaN(lon)) { msg.textContent = "Latitude ou longitude illisible."; return; }
+  if (lat < 5 || lat > 55 || lon < -70 || lon > 5) { msg.textContent = "Cette position est hors du parcours : vérifie N/S et E/W."; return; }
+  const ok = await sendSigned({ lat, lon, voile: f.sail.value, porte: +f.gate.value, twa: f.twa.value.trim() },
+    f.querySelector("button[type=submit]"), `Position ${latS(lat)} ${lonS(lon)} envoyée.`);
+  if (ok) { f.lat.value = ""; f.lon.value = ""; f.twa.value = ""; relayPreview(); }
+}
+const askRecalc = (e) => sendSigned({ action: "recalcul" }, e.currentTarget, "Recalcul demandé.");
 // Position envoyée mais pas encore prise en compte ? (effacée dès qu'une route plus récente est publiée)
 function pending() {
   try { return JSON.parse(store.get(`pending-${state.boat}`, "") || "null"); } catch { return null; }
@@ -594,6 +598,7 @@ function initUi() {
   sel.onchange = () => { state.fmt = sel.value; store.set("fmt", state.fmt); renderRoute(); renderBord(); };
   $("#only-next").onchange = renderRoute;
   $("#relay-form").onsubmit = sendPosition;
+  $("#relay-recalc").onclick = askRecalc;
   $("#relay-form").oninput = relayPreview;
   document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
     document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b));

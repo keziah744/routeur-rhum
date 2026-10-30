@@ -95,6 +95,7 @@
         <label>Code du bateau<input name="code" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" required></label>
         <label class="chk"><input type="checkbox" name="keep" checked> retenir le code sur ce téléphone</label>
         <button class="btn" type="submit">Envoyer ma position</button>
+        <button class="btn ghost" type="button" id="relay-recalc">Recalculer ma route sans changer la position</button>
       </form>
       <p class="msg" id="relay-msg"></p>
     </div>
@@ -121,9 +122,6 @@
     <div class="card" id="gh" hidden>
       <h3>Version en ligne</h3>
       <p>La route se recalcule toute seule dans le cloud à chaque nouvelle météo (vérification toutes les heures).</p>
-      <p class="note">Avec un compte GitHub seulement :</p>
-      <a class="btn ghost" id="gh-route" target="_blank" rel="noopener">Recalculer maintenant</a>
-      <a class="btn ghost" id="gh-pos" target="_blank" rel="noopener">Saisir la position par GitHub</a>
     </div>
     <div class="card note" id="api-note"></div>
   </section>

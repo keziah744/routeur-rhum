@@ -72,3 +72,14 @@ def test_relay_keeps_latest_position_per_boat(tmp_path, monkeypatch):
     assert "since=12h" in seen[0]
     R.relay(CFG, SAILS, get)
     assert "since=c" in seen[1]  # reprend après le dernier message lu
+
+
+def test_recalc_request_without_position(tmp_path, monkeypatch):
+    root = lambda rel: tmp_path / rel  # noqa: E731
+    monkeypatch.setattr(R, "resolve", root)
+    monkeypatch.setattr(S, "resolve", root)
+    monkeypatch.setenv("ROUTEUR_CODES", json.dumps(CODES))
+    msgs = [ntfy({"bateau": "keziah", "action": "recalcul", "t": 100.0}, "voile42", 100.0, "r1"),
+            ntfy({"bateau": "papa", "action": "recalcul", "t": 100.0}, "faux", 100.0, "r2")]
+    assert R.relay(CFG, SAILS, lambda url: "\n".join(json.dumps(m) for m in msgs)) == ["keziah"]
+    assert not (tmp_path / "data/positions").exists()
