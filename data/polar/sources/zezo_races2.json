@@ -1,0 +1,10 @@
+{ 
+"races": [
+	{ "id" : "811.1", "name" : "North Pacific","url":"northpacific" },
+	{ "id" : "812.1", "name" : "NewfoundLand","url":"newfoundland" },
+	{ "id" : "813.1", "name" : "Exmouth","url":"exmouth" },
+	{ "id" : "818.1", "name" : "Round Britain Record","url":"rbr" },
+	{ "id" : "848.1", "name" : "Warm-up by Alpina","url":"alpina" },
+	{ "id" : "855.1", "name" : "Honolulu-Yokohama","url":"yokohama" }
+]
+}
