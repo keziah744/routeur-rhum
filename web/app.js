@@ -525,6 +525,9 @@ function setBoat(id, reload = true) {
   document.querySelectorAll("[data-file]").forEach((a) => (a.href = bpath(a.dataset.file)));
   document.title = state.boats.length > 1 ? `Routeur Rhum · ${boatName()}` : "Routeur Rhum · Ultim";
   $("#relay-boat").textContent = boatName();
+  $("#alerts-boat").textContent = boatName();
+  $("#alerts-topic").textContent = state.topic ? `${state.topic}-${id}` : "";
+  $("#alerts").hidden = !state.topic;
   const f = $("#relay-form");
   f.code.value = store.get(`code-${id}`, "");
   $("#relay-msg").textContent = "";
@@ -602,6 +605,7 @@ function initUi() {
   $("#only-next").onchange = renderRoute;
   $("#relay-form").onsubmit = sendPosition;
   $("#relay-recalc").onclick = askRecalc;
+  $("#alerts-copy").onclick = () => copyText($("#alerts-topic").textContent);
   $("#relay-form").oninput = relayPreview;
   document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
     document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b));

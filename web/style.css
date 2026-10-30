@@ -127,6 +127,9 @@ input[type=range] { width: 100%; margin: 8px 0 0; accent-color: var(--acc); heig
 .pos input, .pos select { min-height: 40px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font: 15px var(--mono); width: 100%; }
 .pos label.chk { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .pos input[type=checkbox] { width: 20px; min-height: 20px; height: 20px; margin: 0; accent-color: var(--acc); }
+.steps { margin: 6px 0 0; padding-left: 20px; font-size: 14px; display: grid; gap: 6px; }
+.steps code { font-size: 13px; word-break: break-all; }
+#alerts p { font-size: 14px; margin: 4px 0; }
 .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 .two > label { min-width: 0; }
 .pos select { text-overflow: ellipsis; }

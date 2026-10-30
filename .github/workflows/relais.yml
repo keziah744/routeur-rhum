@@ -38,7 +38,9 @@ jobs:
           sparse-checkout-cone-mode: false
       - uses: actions/cache/restore@v4
         with:
-          path: data/relay-state.json
+          path: |
+            data/relay-state.json
+            data/alerts-state.json
           key: relay-${{ github.run_id }}
           restore-keys: relay-
       - id: poll
@@ -64,6 +66,7 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     env:
       ROUTEUR_PREFER_S3: "1"
+      ROUTEUR_ALERTES: "1"
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       ROUTEUR_CODE_KEZIAH: ${{ secrets.ROUTEUR_CODE_KEZIAH }}
       ROUTEUR_CODE_PAPA: ${{ secrets.ROUTEUR_CODE_PAPA }}
@@ -105,7 +108,9 @@ jobs:
           restore-keys: gfs-
       - uses: actions/cache/restore@v4
         with:
-          path: data/relay-state.json
+          path: |
+            data/relay-state.json
+            data/alerts-state.json
           key: relay-${{ github.run_id }}
           restore-keys: relay-
       - id: before
@@ -126,7 +131,9 @@ jobs:
       - if: always()
         uses: actions/cache/save@v4
         with:
-          path: data/relay-state.json
+          path: |
+            data/relay-state.json
+            data/alerts-state.json
           key: relay-${{ github.run_id }}-${{ github.run_attempt }}
       - if: hashFiles('data/.relais-nouveau') != ''
         uses: actions/cache/save@v4

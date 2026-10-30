@@ -29,6 +29,7 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     env:
       ROUTEUR_PREFER_S3: "1"
+      ROUTEUR_ALERTES: "1"
       ROUTEUR_CODE_KEZIAH: ${{ secrets.ROUTEUR_CODE_KEZIAH }}
       ROUTEUR_CODE_PAPA: ${{ secrets.ROUTEUR_CODE_PAPA }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -72,13 +73,15 @@ jobs:
           restore-keys: gfs-
       - uses: actions/cache/restore@v4
         with:
-          path: data/relay-state.json
+          path: |
+            data/relay-state.json
+            data/alerts-state.json
           key: relay-${{ github.run_id }}
           restore-keys: relay-
       - id: before
         run: |
           echo "gfs=$(sha1sum data/gfs/current.json 2>/dev/null | cut -c1-40)" >> "$GITHUB_OUTPUT"
-          echo "relay=$(sha1sum data/relay-state.json 2>/dev/null | cut -c1-40)" >> "$GITHUB_OUTPUT"
+          echo "relay=$(cat data/relay-state.json data/alerts-state.json 2>/dev/null | sha1sum | cut -c1-40)" >> "$GITHUB_OUTPUT"
 
       # Positions envoyées depuis la page et pas encore relevées (le relais a pu sauter un passage), puis météo.
       - name: Météo + route
@@ -89,12 +92,14 @@ jobs:
       - id: after
         run: |
           echo "gfs=$(sha1sum data/gfs/current.json 2>/dev/null | cut -c1-40)" >> "$GITHUB_OUTPUT"
-          echo "relay=$(sha1sum data/relay-state.json 2>/dev/null | cut -c1-40)" >> "$GITHUB_OUTPUT"
+          echo "relay=$(cat data/relay-state.json data/alerts-state.json 2>/dev/null | sha1sum | cut -c1-40)" >> "$GITHUB_OUTPUT"
           find data/gfs -name '*.grb2' -delete || true
       - if: steps.after.outputs.relay != steps.before.outputs.relay
         uses: actions/cache/save@v4
         with:
-          path: data/relay-state.json
+          path: |
+            data/relay-state.json
+            data/alerts-state.json
           key: relay-${{ github.run_id }}-${{ github.run_attempt }}
       - if: steps.after.outputs.gfs != steps.before.outputs.gfs
         uses: actions/cache/save@v4

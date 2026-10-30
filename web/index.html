@@ -100,6 +100,17 @@
       </form>
       <p class="msg" id="relay-msg"></p>
     </div>
+    <div class="card" id="alerts" hidden>
+      <h3>Alertes sur ton téléphone · <span id="alerts-boat"></span></h3>
+      <p>Une alerte quand la route change vraiment (arrivée décalée d'1 h ou plus, ou route des 24 h à venir déplacée
+        de 15 milles), et un rappel quand ta position date de plus de 6 h.</p>
+      <ol class="steps">
+        <li>Installe l'application gratuite <b>ntfy</b> (App Store ou Play Store), sans compte.</li>
+        <li>Dans ntfy, touche <b>+</b> et abonne-toi à ce sujet :
+          <div class="line"><code id="alerts-topic" class="mono"></code><button class="copy" id="alerts-copy">Copier</button></div></li>
+        <li>Autorise les notifications quand ntfy le demande.</li>
+      </ol>
+    </div>
     <div class="card kv" id="wx-detail"></div>
     <div class="card" id="dl"></div>
     <div class="card" id="actions" hidden>
