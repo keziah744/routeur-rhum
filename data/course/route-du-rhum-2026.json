@@ -1,0 +1,61 @@
+{
+  "name": "Route du Rhum – Destination Guadeloupe 2026 (Ultim)",
+  "vr_race_id": "797",
+  "start": {
+    "lat": 48.766667,
+    "lon": -1.9,
+    "time_utc": "2026-11-01T12:02:00Z",
+    "note": "Centre du segment de ligne Ultim / Ocean Fifty (IC 2026, positions « approximatives », définitives au plus tard 48 h avant)."
+  },
+  "gates": [
+    {
+      "name": "Porte Fréhel",
+      "a": [48.696667, -2.308333],
+      "b": [48.713333, -2.308333],
+      "cross": "west",
+      "status": "VÉRIFIÉ (IC 2026 annexe 3). La bouée nord peut bouger le jour du départ, même longitude."
+    },
+    {
+      "name": "Îlot Tête à l'Anglais à bâbord",
+      "a": [16.380833, -61.764167],
+      "b": [16.380833, -62.3],
+      "cross": "south",
+      "status": "Règle VÉRIFIÉE ; matérialisée par une demi-droite vers l'ouest depuis l'îlot (SUPPOSÉ)."
+    },
+    {
+      "name": "Bouée Basse-Terre à tribord",
+      "a": [15.9875, -61.7365],
+      "b": [15.9875, -61.69],
+      "cross": "south",
+      "status": "Position VÉRIFIÉE (avenant 2) ; passage entre la bouée et la côte = lecture DÉDUITE."
+    },
+    {
+      "name": "Les Saintes à tribord (canal des Saintes)",
+      "a": [15.885, -61.6],
+      "b": [16.0, -61.6],
+      "cross": "east",
+      "status": "Règle VÉRIFIÉE ; porte placée dans le canal des Saintes (SUPPOSÉ)."
+    },
+    {
+      "name": "Bouée d'atterrissage Pointe-à-Pitre à bâbord",
+      "a": [16.1595, -61.522167],
+      "b": [16.1595, -61.49],
+      "cross": "north",
+      "status": "Position VÉRIFIÉE (avenant 2) ; contournement modélisé par une demi-droite vers l'est (SUPPOSÉ)."
+    }
+  ],
+  "finish": {
+    "name": "Ligne d'arrivée Pointe-à-Pitre",
+    "a": [16.2, -61.5175],
+    "b": [16.2, -61.513333],
+    "cross": "north",
+    "status": "VÉRIFIÉ (IC 2026 §10.1)."
+  },
+  "forbidden_geojson": "data/course/course-2026.geojson",
+  "fine_tiles": [
+    {"name": "Départ Saint-Malo", "lat_min": 48.3, "lat_max": 49.4, "lon_min": -3.2, "lon_max": -1.5},
+    {"name": "Guadeloupe", "lat_min": 15.6, "lat_max": 16.8, "lon_min": -62.4, "lon_max": -60.9, "margin_nm": 0.1,
+     "note": "Marge réduite : la bouée de Basse-Terre se laisse à tribord à ~0,5 mille de la côte."}
+  ],
+  "warning": "Les portes et zones interdites propres à la course Virtual Regatta n° 797 ne sont pas publiques : à comparer dans le jeu avant le départ."
+}

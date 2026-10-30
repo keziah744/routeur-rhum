@@ -1,0 +1,1654 @@
+{
+ "type": "FeatureCollection",
+ "name": "Route du Rhum - Destination Guadeloupe 2026, real-race course",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Plaisanciers (SI P1-P6, ferme par la cote)",
+    "kind": "forbidden_boundary",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": null
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -2.391667,
+      48.683333
+     ],
+     [
+      -2.333333,
+      48.695
+     ],
+     [
+      -2.326833,
+      48.680583
+     ],
+     [
+      -2.314833,
+      48.684833
+     ],
+     [
+      -1.970333,
+      48.714167
+     ],
+     [
+      -1.835,
+      48.731667
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Parc eolien Saint-Brieuc",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_Parc_eolien_Saint-Brieuc.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.569167,
+       48.93
+      ],
+      [
+       -2.5,
+       48.885
+      ],
+      [
+       -2.454167,
+       48.8175
+      ],
+      [
+       -2.448333,
+       48.796667
+      ],
+      [
+       -2.509167,
+       48.791667
+      ],
+      [
+       -2.555,
+       48.805833
+      ],
+      [
+       -2.575833,
+       48.82
+      ],
+      [
+       -2.618333,
+       48.896667
+      ],
+      [
+       -2.616667,
+       48.909167
+      ],
+      [
+       -2.569167,
+       48.93
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Moulieres Binic",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_Moulieres_Binic.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.777333,
+       48.601167
+      ],
+      [
+       -2.769167,
+       48.605333
+      ],
+      [
+       -2.756333,
+       48.5935
+      ],
+      [
+       -2.764333,
+       48.589667
+      ],
+      [
+       -2.777333,
+       48.601167
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI TSS Ouessant (long)",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "TSS_Ouessant.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -5.501667,
+       49.075833
+      ],
+      [
+       -5.306333,
+       48.8515
+      ],
+      [
+       -5.116,
+       48.684
+      ],
+      [
+       -5.447167,
+       48.425333
+      ],
+      [
+       -5.772667,
+       48.510833
+      ],
+      [
+       -6.114333,
+       48.636
+      ],
+      [
+       -5.86,
+       48.94
+      ],
+      [
+       -5.501667,
+       49.075833
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Parc eolien Banc de Guerande",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_Parc_eolien_Banc_Guerande.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.704167,
+       47.145833
+      ],
+      [
+       -2.691667,
+       47.179167
+      ],
+      [
+       -2.695833,
+       47.204167
+      ],
+      [
+       -2.658333,
+       47.2125
+      ],
+      [
+       -2.5125,
+       47.166667
+      ],
+      [
+       -2.495833,
+       47.15
+      ],
+      [
+       -2.55,
+       47.116667
+      ],
+      [
+       -2.704167,
+       47.145833
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Parc eolien Yeu",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_Parc_eolien_Yeu.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.527867,
+       46.943333
+      ],
+      [
+       -2.416583,
+       46.849617
+      ],
+      [
+       -2.48975,
+       46.808683
+      ],
+      [
+       -2.581783,
+       46.8865
+      ],
+      [
+       -2.582567,
+       46.913217
+      ],
+      [
+       -2.527867,
+       46.943333
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Turbines maremotrices SEM-REV",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_Turbines_maremotrices.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.775833,
+       47.246667
+      ],
+      [
+       -2.766667,
+       47.239167
+      ],
+      [
+       -2.781667,
+       47.231667
+      ],
+      [
+       -2.791667,
+       47.239167
+      ],
+      [
+       -2.775833,
+       47.246667
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI TSS West Scilly",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "TSS_West_Scilly.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -6.545833,
+       50.017833
+      ],
+      [
+       -6.61,
+       49.871667
+      ],
+      [
+       -6.895,
+       49.873333
+      ],
+      [
+       -6.8075,
+       50.065833
+      ],
+      [
+       -6.545833,
+       50.017833
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI TSS South Scilly",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "TSS_South_Scilly.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -6.275833,
+       49.7675
+      ],
+      [
+       -6.273333,
+       49.592333
+      ],
+      [
+       -6.568333,
+       49.5925
+      ],
+      [
+       -6.4925,
+       49.767167
+      ],
+      [
+       -6.275833,
+       49.7675
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI TSS Seven Stones",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_TSS_Seven_Stones.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -6.083333,
+       50.333333
+      ],
+      [
+       -5.825,
+       50.333333
+      ],
+      [
+       -5.826667,
+       50.016167
+      ],
+      [
+       -6.083,
+       49.8925
+      ],
+      [
+       -6.083333,
+       50.333333
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI TSS Fastnet",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_TSS_Fastnet.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -9.611667,
+       51.355
+      ],
+      [
+       -9.456667,
+       51.381667
+      ],
+      [
+       -9.41,
+       51.285833
+      ],
+      [
+       -9.565,
+       51.256667
+      ],
+      [
+       -9.611667,
+       51.355
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI TSS Cap Finisterre (long)",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "TSS_Finisterre_long.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -10.033333,
+       43.598333
+      ],
+      [
+       -9.556333,
+       43.425
+      ],
+      [
+       -9.733333,
+       43.175
+      ],
+      [
+       -9.733333,
+       42.795833
+      ],
+      [
+       -10.230833,
+       42.795833
+      ],
+      [
+       -10.230833,
+       43.315833
+      ],
+      [
+       -10.033333,
+       43.598333
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Parc eolien Viana do Castelo",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_Parc_eolien_Viana.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -9.088,
+       41.697167
+      ],
+      [
+       -9.033333,
+       41.697167
+      ],
+      [
+       -9.033333,
+       41.675333
+      ],
+      [
+       -9.088,
+       41.675333
+      ],
+      [
+       -9.088,
+       41.697167
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI TSS Cape Roca",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "TSS_Cape_Roca.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -9.685,
+       38.866667
+      ],
+      [
+       -9.666667,
+       38.661667
+      ],
+      [
+       -10.195,
+       38.565
+      ],
+      [
+       -10.23,
+       38.681667
+      ],
+      [
+       -10.23,
+       38.866667
+      ],
+      [
+       -9.685,
+       38.866667
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI TSS Cabo Sao Vicente",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "TSS_Cabo_Sao_Vicente.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -9.195,
+       37.041667
+      ],
+      [
+       -9.171667,
+       36.945
+      ],
+      [
+       -9.071667,
+       36.858333
+      ],
+      [
+       -8.953333,
+       36.835
+      ],
+      [
+       -9.1,
+       36.42
+      ],
+      [
+       -9.36,
+       36.474333
+      ],
+      [
+       -9.664167,
+       36.736667
+      ],
+      [
+       -9.721667,
+       36.943333
+      ],
+      [
+       -9.195,
+       37.041667
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI TSS Canaries Est",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "TSS_Canaries_Est.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -14.795,
+       28.33
+      ],
+      [
+       -15.005833,
+       27.813
+      ],
+      [
+       -15.1475,
+       27.858333
+      ],
+      [
+       -14.951667,
+       28.341667
+      ],
+      [
+       -14.795,
+       28.33
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI TSS Canaries Ouest",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "TSS_Canaries_Ouest.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -15.655,
+       28.563333
+      ],
+      [
+       -16.215833,
+       27.973333
+      ],
+      [
+       -16.3275,
+       28.0575
+      ],
+      [
+       -15.78,
+       28.635
+      ],
+      [
+       -15.655,
+       28.563333
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Mauritanie",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_Mauritanie.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -16.416667,
+       21.516667
+      ],
+      [
+       -16.416667,
+       16.0
+      ],
+      [
+       -17.583333,
+       16.0
+      ],
+      [
+       -17.583333,
+       21.516667
+      ],
+      [
+       -16.416667,
+       21.516667
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI ZPC Acores (cetaces)",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_ZPC_Acores.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -32.0,
+       39.833333
+      ],
+      [
+       -30.4,
+       40.733333
+      ],
+      [
+       -26.866667,
+       40.166667
+      ],
+      [
+       -24.566667,
+       38.5
+      ],
+      [
+       -23.666667,
+       37.25
+      ],
+      [
+       -24.533333,
+       36.333333
+      ],
+      [
+       -26.783333,
+       36.333333
+      ],
+      [
+       -28.333333,
+       37.183333
+      ],
+      [
+       -31.25,
+       37.283333
+      ],
+      [
+       -32.0,
+       37.783333
+      ],
+      [
+       -32.0,
+       39.833333
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI ZPC AGOA Guadeloupe (cetaces)",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_ZPC_AGOA_Guadeloupe.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -61.764167,
+       16.380833
+      ],
+      [
+       -61.474167,
+       16.510833
+      ],
+      [
+       -61.540833,
+       16.4375
+      ],
+      [
+       -61.508333,
+       16.341667
+      ],
+      [
+       -61.694167,
+       16.333333
+      ],
+      [
+       -61.764167,
+       16.380833
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Stade nautique Basse-Terre",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_Guadeloupe_Stades_Nautiques.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -61.731833,
+       15.995
+      ],
+      [
+       -61.723,
+       15.985583
+      ],
+      [
+       -61.723917,
+       15.9845
+      ],
+      [
+       -61.73325,
+       15.994083
+      ],
+      [
+       -61.731833,
+       15.995
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Stade nautique Pointe-a-Pitre",
+    "kind": "forbidden",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "ZI_Guadeloupe_Stades_Nautiques.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -61.528667,
+       16.211333
+      ],
+      [
+       -61.522667,
+       16.2125
+      ],
+      [
+       -61.508417,
+       16.20755
+      ],
+      [
+       -61.505,
+       16.205333
+      ],
+      [
+       -61.505,
+       16.2
+      ],
+      [
+       -61.5095,
+       16.2
+      ],
+      [
+       -61.5095,
+       16.204667
+      ],
+      [
+       -61.516667,
+       16.209333
+      ],
+      [
+       -61.528083,
+       16.21
+      ],
+      [
+       -61.528667,
+       16.211333
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Zone de vigilance AGOA Guadeloupe",
+    "kind": "vigilance",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "Vigilance_AGOA_Guadeloupe.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -61.92,
+       16.24
+      ],
+      [
+       -61.873333,
+       16.291667
+      ],
+      [
+       -61.84,
+       16.291667
+      ],
+      [
+       -61.84,
+       16.215
+      ],
+      [
+       -61.9025,
+       16.168333
+      ],
+      [
+       -61.929167,
+       16.188333
+      ],
+      [
+       -61.92,
+       16.24
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Zone de vigilance Madere",
+    "kind": "vigilance",
+    "source": "SI 2026 FR integrant avenants 1 & 2 (Annexe 4)",
+    "cl10": "Vigilance_Madere.cl10"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -17.0,
+       33.5
+      ],
+      [
+       -15.75,
+       33.5
+      ],
+      [
+       -15.75,
+       32.5
+      ],
+      [
+       -16.5,
+       32.0
+      ],
+      [
+       -17.75,
+       32.5
+      ],
+      [
+       -17.0,
+       33.5
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Plaisanciers (Adrena detail, part 1)",
+    "kind": "forbidden",
+    "source": "Adrena file ZI Zone plaisanciers.cl10 (organiser Drive, 09. Fichiers Adrena)"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.284833333,
+       48.66833333
+      ],
+      [
+       -2.286499859,
+       48.66825777
+      ],
+      [
+       -2.289392434,
+       48.66823997
+      ],
+      [
+       -2.296974215,
+       48.66801453
+      ],
+      [
+       -2.299480515,
+       48.66805606
+      ],
+      [
+       -2.302624618,
+       48.6685366
+      ],
+      [
+       -2.30884096,
+       48.66971124
+      ],
+      [
+       -2.310790304,
+       48.67066636
+      ],
+      [
+       -2.312604901,
+       48.67178163
+      ],
+      [
+       -2.314293734,
+       48.67379261
+      ],
+      [
+       -2.314554245,
+       48.67483663
+      ],
+      [
+       -2.313296604,
+       48.67869812
+      ],
+      [
+       -2.312290491,
+       48.67885234
+      ],
+      [
+       -2.311814384,
+       48.67983101
+      ],
+      [
+       -2.310833333,
+       48.68058333
+      ],
+      [
+       -2.313404402,
+       48.6814858
+      ],
+      [
+       -2.314833333,
+       48.68483333
+      ],
+      [
+       -2.170006333,
+       48.69729557
+      ],
+      [
+       -1.970333333,
+       48.71416667
+      ],
+      [
+       -1.835,
+       48.73166667
+      ],
+      [
+       -1.835,
+       48.72406667
+      ],
+      [
+       -1.845,
+       48.71166667
+      ],
+      [
+       -1.846478083,
+       48.7090874
+      ],
+      [
+       -1.85230815,
+       48.70586256
+      ],
+      [
+       -1.855407337,
+       48.70611154
+      ],
+      [
+       -1.859288059,
+       48.70255451
+      ],
+      [
+       -1.862180635,
+       48.69984507
+      ],
+      [
+       -1.867732223,
+       48.7009004
+      ],
+      [
+       -1.869879197,
+       48.70102491
+      ],
+      [
+       -1.869627668,
+       48.69871856
+      ],
+      [
+       -1.87501756,
+       48.6959852
+      ],
+      [
+       -1.879392355,
+       48.69555828
+      ],
+      [
+       -1.880048126,
+       48.69779362
+      ],
+      [
+       -1.881269834,
+       48.69871263
+      ],
+      [
+       -1.884045629,
+       48.69714141
+      ],
+      [
+       -1.88695617,
+       48.69931739
+      ],
+      [
+       -1.890450617,
+       48.69915138
+      ],
+      [
+       -1.896127969,
+       48.69239187
+      ],
+      [
+       -1.90120345,
+       48.69028675
+      ],
+      [
+       -1.907509624,
+       48.69022152
+      ],
+      [
+       -1.912962398,
+       48.69071964
+      ],
+      [
+       -1.916367012,
+       48.69439017
+      ],
+      [
+       -1.918505003,
+       48.69524995
+      ],
+      [
+       -1.921334696,
+       48.69258162
+      ],
+      [
+       -1.926877301,
+       48.6924571
+      ],
+      [
+       -1.931952783,
+       48.69338807
+      ],
+      [
+       -1.932240244,
+       48.69537447
+      ],
+      [
+       -1.933363138,
+       48.69953083
+      ],
+      [
+       -1.93374043,
+       48.7016415
+      ],
+      [
+       -1.936507241,
+       48.70251301
+      ],
+      [
+       -1.937971495,
+       48.69431902
+      ],
+      [
+       -1.941834251,
+       48.69258162
+      ],
+      [
+       -1.948787211,
+       48.69127706
+      ],
+      [
+       -1.955937801,
+       48.6924571
+      ],
+      [
+       -1.959135803,
+       48.69052988
+      ],
+      [
+       -1.961956513,
+       48.68556622
+      ],
+      [
+       -1.962585334,
+       48.68698361
+      ],
+      [
+       -1.964480779,
+       48.68730385
+      ],
+      [
+       -1.970167115,
+       48.68669895
+      ],
+      [
+       -1.971334925,
+       48.68438602
+      ],
+      [
+       -1.972691381,
+       48.68337778
+      ],
+      [
+       -1.975413276,
+       48.68314648
+      ],
+      [
+       -1.976805665,
+       48.68451649
+      ],
+      [
+       -1.979105352,
+       48.68448091
+      ],
+      [
+       -1.980228246,
+       48.68216194
+      ],
+      [
+       -1.984647957,
+       48.68243477
+      ],
+      [
+       -1.987432735,
+       48.68227463
+      ],
+      [
+       -1.988232235,
+       48.68432671
+      ],
+      [
+       -1.991169726,
+       48.68290924
+      ],
+      [
+       -1.987899859,
+       48.67934464
+      ],
+      [
+       -1.987522566,
+       48.67723897
+      ],
+      [
+       -1.984594058,
+       48.67687121
+      ],
+      [
+       -1.98217759,
+       48.67673479
+      ],
+      [
+       -1.982114708,
+       48.67314602
+      ],
+      [
+       -1.986666667,
+       48.66833333
+      ],
+      [
+       -2.284833333,
+       48.66833333
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "ZI Plaisanciers (Adrena detail, part 2)",
+    "kind": "forbidden",
+    "source": "Adrena file ZI Zone plaisanciers.cl10 (organiser Drive, 09. Fichiers Adrena)"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.333334158,
+       48.69499433
+      ],
+      [
+       -2.326833333,
+       48.68058333
+      ],
+      [
+       -2.326062489,
+       48.67967112
+      ],
+      [
+       -2.326296051,
+       48.67865093
+      ],
+      [
+       -2.325460618,
+       48.67785611
+      ],
+      [
+       -2.326673343,
+       48.67758326
+      ],
+      [
+       -2.327715389,
+       48.67717992
+      ],
+      [
+       -2.32848794,
+       48.67522839
+      ],
+      [
+       -2.327454878,
+       48.67368016
+      ],
+      [
+       -2.328838283,
+       48.67285561
+      ],
+      [
+       -2.331470347,
+       48.67140816
+      ],
+      [
+       -2.331865606,
+       48.67034034
+      ],
+      [
+       -2.333334158,
+       48.670411
+      ],
+      [
+       -2.334713265,
+       48.67083273
+      ],
+      [
+       -2.335054625,
+       48.67017423
+      ],
+      [
+       -2.337057868,
+       48.66924877
+      ],
+      [
+       -2.339366538,
+       48.66911825
+      ],
+      [
+       -2.341711141,
+       48.66813938
+      ],
+      [
+       -2.391666667,
+       48.66833333
+      ],
+      [
+       -2.391667492,
+       48.68332766
+      ],
+      [
+       -2.333334158,
+       48.69499433
+      ],
+      [
+       -2.333334158,
+       48.69499433
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Start line Ultim / Ocean Fifty",
+    "kind": "start_line",
+    "order": 0,
+    "cross": "westward",
+    "source": "SI 2026 9.3 (approximate, final positions published up to 48 h before start)"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -1.9,
+      48.758333
+     ],
+     [
+      -1.9,
+      48.775
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Start line Vintage Multi / Vintage Mono",
+    "kind": "start_line",
+    "order": 0,
+    "cross": "westward",
+    "source": "SI 2026 9.3 (approximate, final positions published up to 48 h before start)"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -1.9,
+      48.75
+     ],
+     [
+      -1.9,
+      48.758333
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Start line IMOCA",
+    "kind": "start_line",
+    "order": 0,
+    "cross": "westward",
+    "source": "SI 2026 9.3 (approximate, final positions published up to 48 h before start)"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -1.9,
+      48.735
+     ],
+     [
+      -1.9,
+      48.75
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Start line Class40",
+    "kind": "start_line",
+    "order": 0,
+    "cross": "westward",
+    "source": "SI 2026 9.3 (approximate, final positions published up to 48 h before start)"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -1.9,
+      48.725
+     ],
+     [
+      -1.9,
+      48.735
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Porte Frehel (gate)",
+    "kind": "gate",
+    "order": 1,
+    "cross": "westward, between the two yellow buoys",
+    "note": "Frehel Nord may be moved on start day, same longitude",
+    "source": "SI 2026 Annexe 3"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -2.308333,
+      48.696667
+     ],
+     [
+      -2.308333,
+      48.713333
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Ile de la Guadeloupe",
+    "kind": "rounding_rule",
+    "order": 2,
+    "side": "port",
+    "note": "Round the island leaving it to port (anticlockwise): north of Grande-Terre, then west coast southbound, then east past the south of Basse-Terre",
+    "source": "SI 2026 Annexe 3"
+   },
+   "geometry": null
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Ilot La Tete a l'Anglais",
+    "kind": "mark",
+    "order": 3,
+    "side": "port",
+    "note": "Natural islet, no coordinates in SI. Position = vertex A of ZI ZPC AGOA (SI Annexe 4), matches BirdLife 16 22 54 N / 61 45 52 W",
+    "source": "SI Annexe 3 (side); SI Annexe 4 + BirdLife (position)"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -61.764167,
+     16.380833
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Bouee Basse-Terre",
+    "kind": "mark",
+    "order": 4,
+    "side": "starboard",
+    "restricted_radius_nm": 0.25,
+    "source": "SI 2026 Annexe 3 and 3B (amendment 2)"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -61.7365,
+     15.9875
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Archipel des Saintes (centre)",
+    "kind": "mark",
+    "order": 5,
+    "side": "starboard",
+    "note": "Natural archipelago; centre from fr.wikipedia infobox (15 51 40 N / 61 36 35 W); enforce with a coastline polygon",
+    "source": "SI Annexe 3 (side); Wikipedia (position)"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -61.609717,
+     15.861117
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Bouee d'atterrissage PP",
+    "kind": "mark",
+    "order": 6,
+    "side": "port",
+    "rounding": true,
+    "source": "SI 2026 Annexe 3 (amendments 1 and 2)"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -61.522167,
+     16.1595
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Finish line",
+    "kind": "finish_line",
+    "order": 7,
+    "cross": "northward",
+    "note": "W end orange cylindrical buoy, E end committee catamaran (blue flag)",
+    "source": "SI 2026 10.1"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      -61.5175,
+      16.2
+     ],
+     [
+      -61.513333,
+      16.2
+     ]
+    ]
+   }
+  }
+ ]
+}
