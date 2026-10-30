@@ -200,8 +200,38 @@ class Service:
 
     # --- route -------------------------------------------------------------------------------
 
+    def followed_route(self) -> dict | None:
+        """Route que le bateau est censé suivre : celle que la page affiche par défaut (la conseillée si elle part
+        du même point que la route GFS, sinon la route GFS)."""
+        main = read_json(self.bout / "route.json")
+        safe = read_json(self.bout / "route-safe.json")
+        if main and safe and (safe.get("start_time"), safe.get("start")) == (main.get("start_time"), main.get("start")):
+            return safe
+        return main
+
+    @staticmethod
+    def along(doc: dict, t: float) -> dict | None:
+        """Position, porte, voile et TWA prévues sur la route à l'instant t (None hors de la route)."""
+        tr = doc.get("track") or []
+        if not tr:
+            return None
+        ts = np.array([datetime.fromisoformat(p[2].replace("Z", "+00:00")).timestamp() for p in tr])
+        if not ts[0] <= t <= ts[-1]:
+            return None
+        k = max(0, min(int(np.searchsorted(ts, t, side="right")) - 1, len(tr) - 1))  # dernier point déjà passé
+        gates = doc.get("gates_passed_track") or []
+        return {"time": t, "lat": float(np.interp(t, ts, [p[0] for p in tr])),
+                "lon": float(np.interp(t, ts, [p[1] for p in tr])),
+                "gate": int(gates[k]) if k < len(gates) else int(doc.get("start_gate", 0)),
+                "sail": int(tr[k][3]), "twa": float(tr[k][5])}
+
     def start_state(self, now: float | None = None, override: dict | None = None) -> dict:
-        """Point de départ : ligne de départ avant le coup de canon, sinon position du bateau."""
+        """Point de départ du calcul.
+
+        Avant le coup de canon : la ligne de départ. Ensuite, la position du jeu si la route en cours ne la connaît
+        pas encore (à son heure réelle : le bateau a avancé depuis). Sinon, on suppose que le bateau a suivi la route
+        calculée depuis sa dernière position et on l'avance le long de cette route jusqu'à maintenant.
+        """
         now = now or time.time()
         if override:
             return override
@@ -209,19 +239,20 @@ class Service:
             return {"time": self.course.start_time, "lat": self.course.start_lat, "lon": self.course.start_lon,
                     "gate": 0, "source": "ligne de départ"}
         pos = read_json(position_file(self.boat))
+        route = self.followed_route()
+        r_start = datetime.fromisoformat(route["start_time"].replace("Z", "+00:00")).timestamp() if route else None
+        if pos and (r_start is None or pos["time"] > r_start + 60):
+            age_min = (now - pos["time"]) / 60
+            when = f"il y a {age_min:.0f} min" if age_min < 90 else f"il y a {age_min / 60:.1f} h"
+            return {**pos, "time": max(pos["time"], now - 1800) if age_min <= 30 else pos["time"],
+                    "source": f"position saisie ({when})"}
+        est = self.along(route, now) if route else None
+        if est:
+            last = (f"dernière position il y a {(now - pos['time']) / 3600:.1f} h" if pos
+                    else "aucune position saisie")
+            return {**est, "source": f"estimée sur la route suivie ({last})"}
         if pos:
-            age_h = (now - pos["time"]) / 3600
-            if age_h < 12:
-                return {**pos, "time": max(pos["time"], now - 1800), "source": f"position saisie ({age_h:.1f} h)"}
-        doc = read_json(self.bout / "route.json")
-        if doc:  # estimation : on suppose que le bateau suit la route précédente
-            ts = np.array([datetime.fromisoformat(p[2].replace("Z", "+00:00")).timestamp() for p in doc["track"]])
-            if ts[0] <= now <= ts[-1]:
-                k = int(np.searchsorted(ts, now))
-                return {"time": now, "lat": float(np.interp(now, ts, [p[0] for p in doc["track"]])),
-                        "lon": float(np.interp(now, ts, [p[1] for p in doc["track"]])),
-                        "gate": int(doc.get("gates_passed_track", [0] * len(ts))[min(k, len(ts) - 1)]),
-                        "source": "estimée sur la route précédente (saisir la position réelle !)"}
+            return {**pos, "source": "position saisie (route précédente terminée)"}
         return {"time": now, "lat": self.course.start_lat, "lon": self.course.start_lon, "gate": 0,
                 "source": "ligne de départ (aucune position connue)"}
 
@@ -259,7 +290,9 @@ class Service:
 
     def publish_route(self, doc: dict) -> None:
         """Écrit la route de ce bateau (avec la comparaison à sa route précédente)."""
-        doc = {**doc, "skipper": self.boat, "published_at": iso(time.time())}  # ≠ computed_at si route reprise
+        pos = read_json(position_file(self.boat))
+        doc = {**doc, "skipper": self.boat, "published_at": iso(time.time()),  # ≠ computed_at si route reprise
+               "last_position": {"time": iso(pos["time"]), "lat": pos["lat"], "lon": pos["lon"]} if pos else None}
         out_route = self.bout / "route.json"
         prev = read_json(out_route)
         doc["comparison"] = compare(prev, doc)

@@ -173,7 +173,7 @@ function renderBord() {
     <dt>Calculée le</dt><dd>${fmtT(R.computed_at)}</dd>
     <dt>Départ du calcul</dt><dd>${R.start_source}</dd>`;
   const beyond = R.beyond_forecast_from ? ` Au-delà du ${fmtT(R.beyond_forecast_from)}, la route utilise la dernière échéance disponible.` : "";
-  $("#disclaimer").textContent = `Route estimée, pas une optimale garantie : GFS 0,25° interpolé, pas de calcul variable, polaire ${R.boat} reconstruite et pénalités en partie supposées.${beyond}`;
+  $("#disclaimer").textContent = `Route estimée, pas une optimale garantie : GFS 0,25° interpolé, calcul par étapes de 15 min au début puis d'1 h, polaire ${R.boat} reconstruite et pénalités en partie supposées.${beyond}`;
 }
 const cycleS = (c) => (c ? `GFS ${c.slice(6, 8)}/${c.slice(4, 6)} ${c.slice(8)}z` : "–");
 
@@ -211,10 +211,13 @@ function renderNow() {
     p.push(`<p><b>Rien à faire pour l'instant.</b> La route se recalcule toute seule à chaque nouvelle météo (4 fois par jour).</p>`);
     p.push(`<p class="note">Elle va encore beaucoup bouger tant que le départ est loin : c'est normal, la météo à une semaine est incertaine.</p>`);
   } else if (!R.eta || now < ts(R.eta) + 6 * 3600e3) {
-    const fromPos = /position saisie/.test(R.start_source);
+    // Plus la dernière position est vieille, plus la route repose sur « le bateau a suivi la route ».
+    const lp = R.last_position, lpAge = lp ? (now - ts(lp.time)) / 3600e3 : Infinity;
     p.push(`<p class="lead"><b>Course en cours.</b></p>`);
-    p.push(fromPos ? `<p>Route calculée depuis ta position saisie.</p>`
-      : `<p class="warn"><b>À faire :</b> envoie ta position du jeu (onglet Météo). Sinon le routeur suppose que tu as suivi sa route.</p>`);
+    p.push(!lp ? `<p class="warn"><b>À faire :</b> envoie ta position du jeu (onglet Météo). Sinon le routeur suppose que tu as suivi sa route.</p>`
+      : lpAge >= 6 ? `<p class="warn"><b>Ta dernière position date de ${until(now - ts(lp.time))} :</b> la route peut être fausse si tu t'es écarté. Envoie ta position (onglet Météo).</p>`
+      : lpAge >= 4 ? `<p>Dernière position envoyée il y a ${until(now - ts(lp.time))}. Pense à la renvoyer bientôt.</p>`
+      : `<p class="ok">Dernière position envoyée il y a ${until(now - ts(lp.time))}.</p>`);
     const wp = R.waypoints.find((x) => ts(x.t) > now);
     if (wp) p.push(`<p>Prochain ordre dans le jeu : <b>WP${pad(wp.n)}</b> vers ${fmtT(wp.t).split(" ").pop()}, cap <b>${deg(wp.heading)}</b>, voile <b>${sailFr(wp.sail)}</b>.</p>`);
   } else p.push(`<p class="lead"><b>Course terminée.</b></p>`);
