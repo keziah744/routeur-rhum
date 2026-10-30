@@ -5,6 +5,8 @@
   cycle                 tâche planifiée : météo, puis route si la prévision a changé
   ensemble              31 scénarios GEFS : route la plus sûre (tâche planifiée n° 2)
   expliquer             explication de la route en français par Claude (clé ANTHROPIC_API_KEY)
+  position              enregistre la position d'un bateau (--bateau) puis recalcule sa route
+  relais                relève les positions envoyées depuis la page (ntfy.sh) et recalcule
   masque                reconstruit le masque terre + zones interdites
   serveur               interface web locale (téléphone sur le même réseau)
   planifier / deplanifier   installe / retire la tâche planifiée Windows (toutes les heures)
@@ -24,19 +26,7 @@ log = logging.getLogger("routeur")
 TASK_NAME = "RouteurRhum-cycle"
 
 
-def parse_coord(txt: str, is_lat: bool) -> float:
-    """« 46.2083 », « -23.668 », « 46°12,5 N », « 46 12.5 N », « 46°12'30\" N » -> degrés décimaux."""
-    import re
-    s = txt.strip().upper().replace(",", ".")
-    nums = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", s)]
-    if not nums:
-        raise ValueError(f"coordonnée illisible : {txt!r}")
-    v = nums[0] + (nums[1] / 60 if len(nums) > 1 else 0) + (nums[2] / 3600 if len(nums) > 2 else 0)
-    if re.search(r"[SWO]", s) or s.startswith("-"):
-        v = -v
-    if abs(v) > (90 if is_lat else 180):
-        raise ValueError(f"coordonnée hors limites : {txt!r}")
-    return v
+from .relay import parse_coord, sail_index  # noqa: E402,F401  (réexporté pour les tests)
 
 
 def parse_start(args, svc) -> dict | None:
@@ -60,6 +50,7 @@ def main(argv=None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", help="fichier de configuration (défaut : config.toml)")
     ap.add_argument("-v", "--verbose", action="store_true")
+    ap.add_argument("--bateau", help="identifiant du bateau (défaut : le premier de config.toml)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("meteo")
     r = sub.add_parser("route")
@@ -73,6 +64,7 @@ def main(argv=None) -> int:
     po.add_argument("--voile", default="", help="voile actuelle (Jib, Spi, Code0…), facultatif")
     po.add_argument("--porte", type=int, default=1, help="prochaine marque (1 = Tête à l'Anglais)")
     sub.add_parser("expliquer")
+    sub.add_parser("relais")
     e = sub.add_parser("ensemble")
     e.add_argument("--force", action="store_true", help="recalcule les scénarios même sans nouveau cycle")
     c = sub.add_parser("cycle")
@@ -100,7 +92,7 @@ def main(argv=None) -> int:
     if args.cmd == "deplanifier":
         return schedule(install=False)
 
-    svc = Service(cfg)
+    svc = Service(cfg, args.bateau)
     try:
         if args.cmd == "meteo":
             print(json.dumps(svc.update_weather(), indent=1, ensure_ascii=False))
@@ -121,21 +113,30 @@ def main(argv=None) -> int:
                   f"contrôle waypoints {doc['check_waypoints']}")
         elif args.cmd == "cycle":
             print(json.dumps(svc.cycle(force_route=args.force), indent=1, ensure_ascii=False))
+        elif args.cmd == "relais":
+            from .config import resolve
+            from .relay import relay
+            flag = resolve("data/.relais-nouveau")
+            flag.unlink(missing_ok=True)
+            updated = relay(cfg, svc.polar.sail_names)
+            if updated:
+                flag.write_text(",".join(updated), encoding="utf-8")  # signal pour GitHub Actions : publier
+                print(json.dumps(svc.cycle(force_route=True, boats=updated), indent=1, ensure_ascii=False))
+            else:
+                print("aucune nouvelle position")
         elif args.cmd == "position":
             import time as _time
             from .config import resolve
             from .service import write_json
             pos = {"time": _time.time(), "lat": parse_coord(args.lat, True), "lon": parse_coord(args.lon, False),
                    "gate": args.porte}
-            names = svc.polar.sail_names
-            fr = {"foc": "Jib", "spi": "Spi", "trinquette": "Staysail", "foc léger": "LightJib", "code 0": "Code0",
-                  "gennaker lourd": "HeavyGnk", "gennaker léger": "LightGnk"}
-            sail = fr.get(args.voile.strip().lower(), args.voile.strip())
-            if sail in names:
-                pos["sail"] = names.index(sail)
-            write_json(resolve("data/position.json"), pos)
-            log.info("position enregistrée : %.4f, %.4f", pos["lat"], pos["lon"])
-            print(json.dumps(svc.cycle(force_route=True), indent=1, ensure_ascii=False))
+            from .service import position_file
+            sail = sail_index(args.voile, svc.polar.sail_names)
+            if sail is not None:
+                pos["sail"] = sail
+            write_json(position_file(svc.boat), pos)
+            log.info("[%s] position enregistrée : %.4f, %.4f", svc.boat, pos["lat"], pos["lon"])
+            print(json.dumps(svc.cycle(force_route=True, boats=[svc.boat]), indent=1, ensure_ascii=False))
         elif args.cmd == "expliquer":
             print(json.dumps(svc.write_explanation(), indent=1, ensure_ascii=False))
         elif args.cmd == "ensemble":

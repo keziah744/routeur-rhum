@@ -93,3 +93,17 @@ commit_h = 48.0
 enabled = true
 model = "claude-opus-5-5"
 effort = "medium"
+
+# Bateaux suivis : une position, une route et une feuille de route chacun (météo et scénarios partagés).
+[[boats]]
+id = "keziah"
+name = "Keziah"
+
+[[boats]]
+id = "papa"
+name = "Papa"
+
+[relay]
+# Sujet ntfy.sh où la page publie les positions (public : seul le code de chaque bateau, secret GitHub
+# ROUTEUR_CODES, protège l'envoi).
+ntfy_topic = "rr-a6116c1aa98c4c1611d8f1c9"

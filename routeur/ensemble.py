@@ -263,7 +263,7 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
     que les choix diffèrent. Le tour de la Guadeloupe qui suit est repris de la route GFS (grille 0,25°).
     """
     cfg, polar, mask, course = svc.cfg, svc.polar, svc.mask, svc.course
-    main = json.loads((svc.out / "route.json").read_text(encoding="utf-8"))
+    main = json.loads((svc.bout / "route.json").read_text(encoding="utf-8"))
     t0 = datetime.fromisoformat(main["start_time"].replace("Z", "+00:00")).timestamp()
     start = (main["start"]["lat"], main["start"]["lon"])
     gate0 = int(main.get("start_gate", 0))
@@ -365,12 +365,12 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
            "best_possible_median": iso(float(np.median(own))) if own.size else None,
            "compute_s": round(time.time() - clock, 1),
            "candidates": [{k: v for k, v in c.items() if not k.startswith("_")} for c in out_c]}
-    safe = svc.out / "route-safe.json"
+    safe = svc.bout / "route-safe.json"
     if rec["id"] != "gfs":
         write_json(safe, safe_document(main, results[rec["id"]], i_cut, rec["id"], gefs_cycle, members[rec["id"]]))
     elif safe.exists():
         safe.unlink()
-    write_json(svc.out / "ensemble.json", doc)
+    write_json(svc.bout / "ensemble.json", doc)
     log.info("scénarios : %d routes, conseillée %s (médiane %s), dispersion %s h, %.0f s",
              len(cands) - 1, rec["label"], rec["median_eta"], doc["spread_h"], doc["compute_s"])
     return doc

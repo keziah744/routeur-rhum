@@ -1,5 +1,8 @@
-"""Orchestration : météo → route → fichiers publiés pour l'interface (web/data/).
+"""Orchestration : météo → route(s) → fichiers publiés pour l'interface (web/data/).
 
+Plusieurs bateaux (config [[boats]]) : météo et scénarios GEFS partagés, une position, une route, une feuille
+de route et une explication par bateau dans web/data/bateaux/<id>/. Deux bateaux qui partent du même point
+(avant le départ, typiquement) ne sont calculés qu'une fois.
 Un verrou de fichier empêche deux calculs simultanés (tâche planifiée + bouton « recalculer »).
 """
 from __future__ import annotations
@@ -29,6 +32,10 @@ from .wind import WindField
 log = logging.getLogger("routeur.service")
 
 STALE_AFTER_H = 9.0   # un cycle GFS sort toutes les 6 h ; au-delà de 9 h on prévient
+DEFAULT_BOATS = [{"id": "keziah", "name": "Keziah"}]
+# Fichiers propres à chaque bateau (les autres de web/data/ sont partagés).
+BOAT_FILES = ("route.json", "route-prev.json", "route-safe.json", "ensemble.json", "explain.json", "status.json",
+              "feuille-de-route.csv", "feuille-de-route.gpx")
 
 
 class Busy(RuntimeError):
@@ -67,17 +74,36 @@ def file_lock(path: Path):
 
 
 def write_json(path: Path, data, compact=False) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":") if compact else None,
                               indent=None if compact else 1), encoding="utf-8")
     os.replace(tmp, path)
 
 
+def read_json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
+def boats_of(cfg: dict) -> list[dict]:
+    return cfg.get("boats") or DEFAULT_BOATS
+
+
+def position_file(boat: str) -> Path:
+    return resolve(f"data/positions/{boat}.json")
+
+
 class Service:
-    def __init__(self, cfg: dict):
+    def __init__(self, cfg: dict, boat: str | None = None):
         self.cfg = cfg
+        self.boats = boats_of(cfg)
+        self.boat = boat or self.boats[0]["id"]
+        if self.boat not in {b["id"] for b in self.boats}:
+            raise ValueError(f"bateau inconnu : {self.boat}")
         self.out = resolve(cfg["service"]["output_dir"])
-        self.out.mkdir(parents=True, exist_ok=True)
+        self.bout = self.out / "bateaux" / self.boat
+        self.bout.mkdir(parents=True, exist_ok=True)
+        self._migrate()
         self.store = GfsStore(cfg, status_path=self.out / "weather-status.json")
         self.course = Course.load(resolve(cfg["course"]["file"]))
         self._polar = self._mask = None
@@ -85,6 +111,23 @@ class Service:
         dst = self.out / "course.geojson"
         if src and src.exists() and (not dst.exists() or dst.stat().st_mtime < src.stat().st_mtime):
             shutil.copyfile(src, dst)
+        from .relay import boats_public
+        pub = boats_public(cfg)
+        if read_json(self.out / "boats.json") != pub:
+            write_json(self.out / "boats.json", pub)
+
+    def _migrate(self) -> None:
+        """Ancienne version à un seul bateau : ses fichiers passent au premier bateau."""
+        if self.boat != self.boats[0]["id"]:
+            return
+        for name in BOAT_FILES:
+            old = self.out / name
+            if old.exists() and not (self.bout / name).exists() and name != "status.json":
+                shutil.move(str(old), self.bout / name)
+        old_pos = resolve("data/position.json")
+        if old_pos.exists() and not position_file(self.boat).exists():
+            position_file(self.boat).parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(old_pos), position_file(self.boat))
 
     @property
     def polar(self) -> Polar:
@@ -106,9 +149,11 @@ class Service:
 
     # --- état publié ---------------------------------------------------------------------------
 
-    def status(self, **route) -> dict:
+    def status(self) -> dict:
+        """État partagé : météo et course (web/data/status.json)."""
         p = self.out / "status.json"
-        st = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+        st = read_json(p) or {}
+        st.pop("route", None)
         cur = self.store.current()
         if cur:
             age = (datetime.now(timezone.utc) - datetime.fromisoformat(cur["run"])).total_seconds() / 3600
@@ -116,10 +161,15 @@ class Service:
                              "fetched_at": cur["updated_at"], "age_h": round(age, 1),
                              "stale": age > STALE_AFTER_H,
                              "incomplete": cur["max_hour"] < self.cfg["gfs"]["max_hour"]}
-        if route:
-            st["route"] = {**st.get("route", {}), **route}
         st["race"] = {"name": self.course.name, "start_time": iso(self.course.start_time)}
         st["updated_at"] = iso(time.time())
+        write_json(p, st)
+        return st
+
+    def route_status(self, **route) -> dict:
+        """État du calcul de route de ce bateau (web/data/bateaux/<id>/status.json)."""
+        p = self.bout / "status.json"
+        st = {**(read_json(p) or {}), **route, "updated_at": iso(time.time())}
         write_json(p, st)
         return st
 
@@ -155,18 +205,16 @@ class Service:
         now = now or time.time()
         if override:
             return override
-        pos_file = resolve("data/position.json")
         if now < self.course.start_time:
             return {"time": self.course.start_time, "lat": self.course.start_lat, "lon": self.course.start_lon,
                     "gate": 0, "source": "ligne de départ"}
-        if pos_file.exists():
-            pos = json.loads(pos_file.read_text(encoding="utf-8"))
+        pos = read_json(position_file(self.boat))
+        if pos:
             age_h = (now - pos["time"]) / 3600
             if age_h < 12:
                 return {**pos, "time": max(pos["time"], now - 1800), "source": f"position saisie ({age_h:.1f} h)"}
-        prev = self.out / "route.json"
-        if prev.exists():  # estimation : on suppose que le bateau suit la route précédente
-            doc = json.loads(prev.read_text(encoding="utf-8"))
+        doc = read_json(self.bout / "route.json")
+        if doc:  # estimation : on suppose que le bateau suit la route précédente
             ts = np.array([datetime.fromisoformat(p[2].replace("Z", "+00:00")).timestamp() for p in doc["track"]])
             if ts[0] <= now <= ts[-1]:
                 k = int(np.searchsorted(ts, now))
@@ -186,7 +234,7 @@ class Service:
         wind = WindField.load(wind_path)
         st = self.start_state(override=start)
         params = RoutingParams.from_config(self.cfg)
-        self.status(state="calcul", message=f"Calcul depuis {st['source']}", started_at=iso(time.time()))
+        self.route_status(state="calcul", message=f"Calcul depuis {st['source']}", started_at=iso(time.time()))
         router = Router(wind, self.polar, self.mask, self.course, params)
         res = router.run(start_time=st["time"], start=(st["lat"], st["lon"]), start_gate=st.get("gate", 0),
                          start_sail=st.get("sail", -1), start_twa=st.get("twa", 0.0), progress=progress)
@@ -195,6 +243,7 @@ class Service:
                            wind=wind)
         check = check_legs(rm["waypoints"], wind, self.polar)
         meta = {"race": self.course.name, "boat": self.polar.label, "polar_file": self.polar.source,
+                "skipper": self.boat,
                 "gfs_cycle": (cur or {}).get("cycle") if not start or wind_path == (cur or {}).get("path") else None,
                 "gfs_run": iso(wind.run) if wind.run else None, "wind_file": str(wind_path),
                 "start_source": st["source"], "start": {"lat": st["lat"], "lon": st["lon"]},
@@ -203,91 +252,148 @@ class Service:
                 "gates": [{"name": g.name, "a": g.a, "b": g.b, "cross": g.cross} for g in self.course.gates]}
         doc = route_document(res, rm, meta, check)
         doc["gates_passed_track"] = [p.gate for p in res.points]
-        out_route = self.out / "route.json"
-        prev = json.loads(out_route.read_text(encoding="utf-8")) if out_route.exists() else None
+        self.publish_route(doc)
+        log.info("[%s] route calculée : arrivée %s, %d waypoints, %d changements de voile, %.0f s", self.boat,
+                 doc["eta"], len(doc["waypoints"]), len(doc["sail_changes"]), res.stats["compute_s"])
+        return doc
+
+    def publish_route(self, doc: dict) -> None:
+        """Écrit la route de ce bateau (avec la comparaison à sa route précédente)."""
+        doc = {**doc, "skipper": self.boat, "published_at": iso(time.time())}  # ≠ computed_at si route reprise
+        out_route = self.bout / "route.json"
+        prev = read_json(out_route)
         doc["comparison"] = compare(prev, doc)
         if prev:
-            shutil.copyfile(out_route, self.out / "route-prev.json")
+            shutil.copyfile(out_route, self.bout / "route-prev.json")
         write_json(out_route, doc, compact=True)
-        (self.out / "feuille-de-route.csv").write_text(to_csv(doc), encoding="utf-8-sig")
-        (self.out / "feuille-de-route.gpx").write_text(to_gpx(doc), encoding="utf-8")
-        msg = (f"Arrivée estimée {doc['eta']} ({doc['duration_h']:.1f} h)" if res.arrived
+        (self.bout / "feuille-de-route.csv").write_text(to_csv(doc), encoding="utf-8-sig")
+        (self.bout / "feuille-de-route.gpx").write_text(to_gpx(doc), encoding="utf-8")
+        msg = (f"Arrivée estimée {doc['eta']} ({doc['duration_h']:.1f} h)" if doc.get("arrived")
                else "Arrivée non atteinte dans la durée maximale de calcul")
-        self.status(state="ok" if res.arrived else "incomplet", message=msg, computed_at=doc["computed_at"],
-                    gfs_cycle=doc["gfs_cycle"], compute_s=res.stats["compute_s"], eta=doc["eta"])
-        log.info("route calculée : %s, %d waypoints, %d changements de voile, %.0f s", msg,
-                 len(doc["waypoints"]), len(doc["sail_changes"]), res.stats["compute_s"])
-        return doc
+        self.route_status(state="ok" if doc.get("arrived") else "incomplet", message=msg,
+                          computed_at=doc["computed_at"], gfs_cycle=doc.get("gfs_cycle"),
+                          compute_s=(doc.get("stats") or {}).get("compute_s"), eta=doc.get("eta"),
+                          start_source=doc.get("start_source"))
+
+    def start_signature(self) -> tuple:
+        """Deux bateaux de même signature partent du même point au même moment : un seul calcul suffit."""
+        st = self.start_state()
+        return (round(st["lat"], 3), round(st["lon"], 3), int(st["time"] // 600), int(st.get("gate", 0)),
+                st.get("sail", -1))
 
     def explanation_stale(self) -> bool:
         """Vrai si l'explication manque, a échoué, ou décrit une autre route que celle affichée."""
         from .explain import PROMPT_VERSION, has_credentials
         if not has_credentials():
             return False
-        p = self.out / "explain.json"
-        if not p.exists():
+        x = read_json(self.bout / "explain.json")
+        if not x:
             return True
-        x = json.loads(p.read_text(encoding="utf-8"))
-        src = self.out / ("route-safe.json" if (self.out / "route-safe.json").exists() else "route.json")
-        shown = json.loads(src.read_text(encoding="utf-8")).get("computed_at") if src.exists() else None
+        src = self.bout / ("route-safe.json" if (self.bout / "route-safe.json").exists() else "route.json")
+        shown = (read_json(src) or {}).get("computed_at")
         return x.get("state") != "ok" or x.get("for_route") != shown or x.get("prompt") != PROMPT_VERSION
 
     def write_explanation(self) -> dict:
         """Explication par Claude de la route affichée par défaut (conseillée si elle existe)."""
         from .explain import explain
-        safe, main = self.out / "route-safe.json", self.out / "route.json"
+        safe, main = self.bout / "route-safe.json", self.bout / "route.json"
         src = safe if safe.exists() else main
         if not src.exists():
             return {"state": "pas de route"}
-        route = json.loads(src.read_text(encoding="utf-8"))
-        ens_p = self.out / "ensemble.json"
-        ens = json.loads(ens_p.read_text(encoding="utf-8")) if ens_p.exists() else None
-        res = explain(route, ens, self.cfg)
-        write_json(self.out / "explain.json", res)
+        res = explain(read_json(src), read_json(self.bout / "ensemble.json"), self.cfg)
+        write_json(self.bout / "explain.json", res)
         return res
 
+    def copy_from(self, other: "Service", names=("route.json", "route-safe.json", "ensemble.json",
+                                                    "explain.json")) -> None:
+        """Reprend les résultats d'un bateau parti du même point (avant le départ, typiquement)."""
+        for name in names:
+            src = other.bout / name
+            if name == "route.json" and src.exists():
+                self.publish_route(read_json(src))
+            elif src.exists():
+                shutil.copyfile(src, self.bout / name)
+            elif (self.bout / name).exists() and name != "route.json":
+                (self.bout / name).unlink()
+
+    # --- tâches planifiées -------------------------------------------------------------------
+
+    def cycle(self, force_route: bool = False, boats: list[str] | None = None) -> dict:
+        """Nouvelle météo ? → nouvelles routes. Sans effet si rien n'a changé.
+
+        boats : bateaux que force_route concerne (tous par défaut). Les autres sont quand même recalculés si la
+        météo a changé ou si leur position est plus récente que leur route.
+        """
+        with file_lock(resolve(self.cfg["service"]["lock_file"])):
+            w = self.update_weather()
+            forced = set(boats or [b["id"] for b in self.boats]) if force_route else set()
+            done: dict[tuple, Service] = {}
+            report = {}
+            for bid in [b["id"] for b in self.boats]:
+                svc = self if bid == self.boat else Service(self.cfg, bid)
+                route_file = svc.bout / "route.json"
+                pos = position_file(bid)
+                pos_newer = pos.exists() and route_file.exists() and pos.stat().st_mtime > route_file.stat().st_mtime
+                need = bid in forced or w.get("changed") or not route_file.exists() or pos_newer
+                sig = svc.start_signature()
+                if not need:
+                    if svc.explanation_stale():
+                        svc.write_explanation()
+                    done.setdefault(sig, svc)  # route à jour : peut servir de modèle aux bateaux suivants
+                    report[bid] = "inchangée"
+                    continue
+                try:
+                    if sig in done:
+                        svc.copy_from(done[sig], names=("route.json", "explain.json"))
+                        log.info("[%s] même point de départ que %s : route reprise", bid, done[sig].boat)
+                    else:
+                        svc.compute_route()
+                        svc.write_explanation()
+                        done[sig] = svc
+                except Exception as exc:
+                    log.exception("[%s] calcul de route échoué", bid)
+                    svc.route_status(state="erreur", message=f"Calcul de route échoué : {exc}")
+                    report[bid] = f"erreur : {exc}"
+                    continue
+                report[bid] = (read_json(route_file) or {}).get("eta")
+            if not any(v not in ("inchangée",) for v in report.values()):
+                log.info("météo inchangée (%s) : routes conservées", w.get("cycle"))
+            return {"weather": {k: w.get(k) for k in ("cycle", "changed", "max_hour")}, "routes": report}
+
     def ensemble_cycle(self, force: bool = False) -> dict:
-        """Tâche planifiée n° 2 : scénarios GEFS, recalculés si nouveau cycle GEFS ou nouvelle route GFS."""
+        """Scénarios GEFS (partagés), recalculés par bateau si nouveau cycle GEFS ou nouvelle route."""
         from .ensemble import EnsembleStore, run_ensemble
         with file_lock(resolve("data/.ensemble.lock")):
             store = EnsembleStore(self.cfg, self.out / "ensemble-status.json")
             upd = store.update()
-            ens, route = self.out / "ensemble.json", self.out / "route.json"
-            if not route.exists():
-                return {"ensemble": "pas encore de route GFS"}
-            stale = not ens.exists() or ens.stat().st_mtime < route.stat().st_mtime
-            if not (force or upd.get("changed") or stale):
-                log.info("scénarios inchangés (GEFS %s)", upd.get("cycle"))
-                return {"ensemble": "inchangé", "gefs": upd.get("cycle")}
+            done: dict[tuple, Service] = {}
+            report = {}
+            for b in self.boats:
+                svc = self if b["id"] == self.boat else Service(self.cfg, b["id"])
+                ens, route = svc.bout / "ensemble.json", svc.bout / "route.json"
+                if not route.exists():
+                    report[b["id"]] = "pas encore de route GFS"
+                    continue
+                stale = not ens.exists() or ens.stat().st_mtime < route.stat().st_mtime
+                if not (force or upd.get("changed") or stale):
+                    report[b["id"]] = "inchangé"
+                    continue
+                doc_route = read_json(route)
+                sig = (doc_route["start_time"], round(doc_route["start"]["lat"], 3),
+                       round(doc_route["start"]["lon"], 3), doc_route.get("gfs_cycle"))
+                if sig in done:
+                    svc.copy_from(done[sig], names=("route-safe.json", "ensemble.json"))
+                    svc.write_explanation()
+                    report[b["id"]] = f"repris de {done[sig].boat}"
+                    continue
 
-            def progress(msg, done, total):
-                store.status(state="calcul", cycle=upd["cycle"], done=done, total=total, message=msg)
+                def progress(msg, d, total, name=b["name"]):
+                    store.status(state="calcul", cycle=upd["cycle"], done=d, total=total, message=f"{name} : {msg}")
 
-            doc = run_ensemble(self, upd["members"], upd["cycle"], progress)
-            store.status(state="ok", cycle=upd["cycle"], done=doc["scenarios"], total=doc["scenarios"],
-                         message=f"{doc['routes_found']} routes calculées, conseillée : {doc['recommended_label']}")
-            self.write_explanation()
-            return {"ensemble": doc["recommended"], "gain_h": doc["gain_vs_gfs_h"], "spread_h": doc["spread_h"]}
-
-    def cycle(self, force_route: bool = False) -> dict:
-        """Tâche planifiée : nouvelle météo ? → nouvelle route. Sans effet si rien n'a changé."""
-        with file_lock(resolve(self.cfg["service"]["lock_file"])):
-            w = self.update_weather()
-            route_file = self.out / "route.json"
-            pos_file = resolve("data/position.json")
-            pos_newer = pos_file.exists() and route_file.exists() and pos_file.stat().st_mtime > route_file.stat().st_mtime
-            need = force_route or w.get("changed") or not route_file.exists() or pos_newer
-            if not need:
-                log.info("météo inchangée (%s) : route conservée", w.get("cycle"))
-                self.status()
-                if self.explanation_stale():
-                    self.write_explanation()
-                return {"weather": w, "route": "inchangée"}
-            try:
-                doc = self.compute_route()
-            except Exception as exc:
-                log.exception("calcul de route échoué")
-                self.status(state="erreur", message=f"Calcul de route échoué : {exc}")
-                raise
-            self.write_explanation()
-            return {"weather": w, "route": {"eta": doc["eta"], "waypoints": len(doc["waypoints"])}}
+                doc = run_ensemble(svc, upd["members"], upd["cycle"], progress)
+                svc.write_explanation()
+                done[sig] = svc
+                report[b["id"]] = {"conseillée": doc["recommended"], "gain_h": doc["gain_vs_gfs_h"]}
+            store.status(state="ok", cycle=upd["cycle"], done=1, total=1,
+                         message=f"Scénarios GEFS {upd['cycle'][6:8]}/{upd['cycle'][4:6]} {upd['cycle'][8:]}z à jour")
+            return {"gefs": upd.get("cycle"), "bateaux": report}

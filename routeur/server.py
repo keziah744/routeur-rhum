@@ -2,7 +2,7 @@
 
   GET  /api/ping       présence de l'API (l'interface masque les boutons sans elle, ex. GitHub Pages)
   GET  /api/job        état du calcul lancé depuis l'interface
-  POST /api/position   {"lat": .., "lon": .., "sail": "Code0"?, "twa": ..?} puis recalcul de la route
+  POST /api/position   {"bateau": "keziah", "lat": .., "lon": .., "voile": "Code0"?, "porte": 1, "twa": ..?}
   POST /api/recalcul   recalcul de la route avec la météo courante
 """
 from __future__ import annotations
@@ -16,7 +16,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 from .config import resolve
 from .roadmap import iso
-from .service import Busy, Service, write_json
+from .relay import parse_coord, sail_index
+from .service import Busy, Service, position_file, write_json
 
 log = logging.getLogger("routeur.server")
 
@@ -83,21 +84,24 @@ def make_handler(cfg: dict, jobs: Jobs):
                 body = json.loads(self.rfile.read(length) or b"{}")
             except ValueError:
                 return self._json(400, {"error": "JSON invalide"})
-            svc = Service(cfg)
+            try:
+                svc = Service(cfg, body.get("bateau") or None)
+            except ValueError as exc:
+                return self._json(400, {"error": str(exc)})
             if self.path == "/api/position":
                 try:
-                    lat, lon = float(body["lat"]), float(body["lon"])
-                    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-                        raise ValueError
+                    lat, lon = parse_coord(body["lat"], True), parse_coord(body["lon"], False)
                 except (KeyError, TypeError, ValueError):
                     return self._json(400, {"error": "latitude / longitude invalides"})
-                pos = {"time": time.time(), "lat": lat, "lon": lon, "gate": int(body.get("gate", 1))}
-                if body.get("sail") in svc.polar.sail_names:
-                    pos["sail"] = svc.polar.sail_names.index(body["sail"])
-                if body.get("twa") not in (None, ""):
-                    pos["twa"] = float(body["twa"])
-                write_json(resolve("data/position.json"), pos)
-                ok = jobs.start("recalcul depuis la position saisie", lambda: svc.cycle(force_route=True))
+                pos = {"time": time.time(), "lat": lat, "lon": lon, "gate": int(body.get("porte", 1))}
+                sail = sail_index(body.get("voile", ""), svc.polar.sail_names)
+                if sail is not None:
+                    pos["sail"] = sail
+                if str(body.get("twa", "")).strip():
+                    pos["twa"] = float(str(body["twa"]).replace(",", "."))
+                write_json(position_file(svc.boat), pos)
+                ok = jobs.start(f"recalcul de {svc.boat} depuis sa position",
+                                lambda: svc.cycle(force_route=True, boats=[svc.boat]))
                 return self._json(202 if ok else 409, {"accepted": ok, **jobs.state})
             if self.path == "/api/recalcul":
                 ok = jobs.start("recalcul de la route", lambda: svc.cycle(force_route=True))

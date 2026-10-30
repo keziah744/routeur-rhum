@@ -10,6 +10,9 @@ logs/
 data/gfs/
 data/gefs/
 data/position.json
+data/positions/
+data/relay-state.json
+data/.relais-nouveau
 data/.*.lock
 
 # Sources brutes : lourdes (côtes GSHHG 118 Mo) ou documents de tiers (PDF des IC, code d'outils communautaires)
