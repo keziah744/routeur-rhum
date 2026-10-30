@@ -1,0 +1,95 @@
+# Configuration centrale du routeur. Tous les chemins sont relatifs au dossier du projet.
+
+[gfs]
+# Zone téléchargée (degrés). Longitudes en -180..180, ouest négatif.
+lat_min = 5.0
+lat_max = 60.0
+lon_min = -85.0
+lon_max = 5.0
+# Échéances : de 0 à max_hour, pas de step_hours (le GFS 0,25° publie au pas de 3 h jusqu'à +384 h).
+step_hours = 3
+max_hour = 384
+# Échéance minimale publiée pour qu'un cycle soit utilisable (sinon on garde le précédent).
+min_usable_hour = 240
+# Politesse envers NOMADS : pause entre deux requêtes (s) et tentatives par fichier.
+request_pause_s = 0.6
+retries = 4
+timeout_s = 60
+# Nombre de cycles gardés sur le disque.
+keep_cycles = 3
+
+[polar]
+# Polaire VR « Ultim BP XI » (_id 21), celle de la course VR « Route du Rhum - Ultim ».
+# Pour changer de polaire : remplacer ce fichier (même format JSON VR), rien d'autre à modifier.
+file = "data/polar/ultim-bp-xi.json"
+# Modèle d'énergie (stamina) : paramètres repris d'ITYC, non publiés par VR (SUPPOSÉ).
+stamina_file = "data/polar/stamina-ityc.json"
+stamina_start_pct = 100
+stamina_boat_factor = 1.5
+
+[geo]
+# Résolution du masque terrestre (degrés). 0,01° ≈ 0,6 mille en latitude.
+mask_resolution = 0.01
+# Résolution des tuiles fines (départ, Guadeloupe) définies dans le fichier du parcours.
+fine_resolution = 0.002
+# Marge de sécurité autour des terres (milles nautiques).
+safety_margin_nm = 0.5
+
+[course]
+file = "data/course/route-du-rhum-2026.json"
+
+[boat]
+# Options Virtual Regatta achetées (true = disponible).
+foils = true
+hull = true
+winch_pro = true
+auto_sail = true
+light_sails = true   # Light Jib, Light Gennaker
+heavy_sails = true   # Staysail, Heavy Gennaker
+reach_sail = true    # Code 0
+
+[routing]
+# Pas de temps (h) : liste de [jusqu'à_heure, pas]. Plus fin au départ.
+time_steps = [[6, 0.25], [24, 0.5], [400, 1.0]]
+# Éventail de caps essayés autour du vent (degrés de TWA).
+twa_step_deg = 3
+twa_min_deg = 30
+# Pruning : largeur max d'un secteur angulaire vu de l'origine de branche (degrés), et largeur visée en
+# milles (le secteur rétrécit quand le front s'éloigne, pour garder la même finesse à l'arrivée).
+sector_deg = 0.5
+sector_nm = 4.0
+# Durée maximale de calcul de route (h de navigation simulée).
+max_duration_h = 400
+# Gain minimal (en %) pour justifier un changement de voile dans la feuille de route.
+sail_change_min_gain_pct = 1.0
+# Tolérance de simplification des waypoints (milles nautiques d'écart latéral).
+simplify_tolerance_nm = 3.0
+
+[service]
+output_dir = "web/data"
+log_file = "logs/routeur.log"
+lock_file = "data/.routeur.lock"
+
+[ensemble]
+# Scénarios météo NOAA GEFS 0,5° : contrôle + 30 variantes. Même zone que [gfs].
+enabled = true
+members = 31
+step_hours = 6
+max_hour = 384
+min_usable_hour = 384
+request_pause_s = 0.4
+keep_cycles = 2
+# Routage des scénarios, plus grossier que la route principale (31 calculs à faire).
+time_steps = [[24, 1.0], [400, 2.0]]
+twa_step_deg = 5
+sector_nm = 8.0
+# Horizon d'engagement : chaque route candidate est suivie ce temps-là dans chaque scénario, puis on suppose
+# un recalcul (le jeu se recale toutes les 6 h ; 48 h = la décision qui compte vraiment).
+commit_h = 48.0
+
+[explain]
+# Explication de la route en français par Claude. Clé : variable d'environnement ANTHROPIC_API_KEY
+# (à définir soi-même, jamais dans ce fichier). Sans clé, rien n'est appelé.
+enabled = true
+model = "claude-opus-5-5"
+effort = "medium"

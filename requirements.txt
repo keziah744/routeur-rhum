@@ -1,0 +1,7 @@
+numpy
+scipy
+eccodes
+eccodeslib; sys_platform == "linux"
+pillow
+anthropic
+pytest

@@ -1,0 +1,24 @@
+# Environnement et fichiers locaux
+.venv/
+__pycache__/
+.pytest_cache/
+logs/
+*.tmp
+*.part
+
+# Caches météo (re-téléchargés) et état local
+data/gfs/
+data/gefs/
+data/position.json
+data/.*.lock
+
+# Sources brutes : lourdes (côtes GSHHG 118 Mo) ou documents de tiers (PDF des IC, code d'outils communautaires)
+data/geo/sources/
+data/course/sources/
+data/polar/sources/code/
+
+# Fichiers produits par les calculs (publiés par GitHub Actions, pas versionnés)
+web/data/*
+!web/data/coast.geojson
+!web/data/coast-detail.geojson
+!web/data/course.geojson
