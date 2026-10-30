@@ -9,7 +9,7 @@ const SAIL_FR = { Jib: "Foc", Spi: "Spi", Staysail: "Trinquette", LightJib: "Foc
 const sailFr = (s) => SAIL_FR[s] || s;
 const $ = (s) => document.querySelector(s);
 const state = { route: null, main: null, safe: null, ens: null, ensSt: null, choice: "safe",
-  status: null, wx: null, wind: null, api: false, fmt: "dms", slider: 0 };
+  status: null, wx: null, wind: null, api: false, fmt: "dms", slider: 0, boats: [], boat: null, topic: null };
 const store = {
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* stockage indisponible */ } },
@@ -54,6 +54,13 @@ function parseCoord(txt, isLat) {
   return Math.abs(v) <= (isLat ? 90 : 180) ? v : NaN;
 }
 
+// Position saisie au téléphone : sans hémisphère, on est forcément au nord et à l'ouest (Saint-Malo → Guadeloupe).
+function parseGame(txt, isLat) {
+  let v = parseCoord(txt, isLat);
+  if (!Number.isNaN(v) && !/[NSEWO-]/i.test(String(txt))) v = isLat ? Math.abs(v) : -Math.abs(v);
+  return v;
+}
+
 function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
   clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), 1600);
@@ -68,6 +75,10 @@ async function copyText(txt) {
 }
 
 // --- données ----------------------------------------------------------------------------------
+// Fichiers propres au bateau affiché (route, scénarios, explication) ; le reste est partagé.
+const bpath = (name) => (state.boat ? `data/bateaux/${state.boat}/${name}` : `data/${name}`);
+const boatName = () => state.boats.find((b) => b.id === state.boat)?.name || "";
+
 async function getJSON(path) {
   const r = await fetch(`${path}?_=${Date.now()}`, { cache: "no-store" });
   if (!r.ok) throw new Error(`${path} : ${r.status}`);
@@ -191,6 +202,10 @@ function renderNow() {
   const start = ts(S?.race?.start_time || R.start_time), w = S?.weather, age = wxAgeH(w), C = R.comparison;
   const p = [];
   if (S?.route?.state === "calcul") p.push(`<p class="warn">Nouveau calcul en cours (environ 3 min)…</p>`);
+  const pend = pending();
+  if (pend) p.push((now / 1000 - pend.t > 1800)
+    ? `<p class="warn">Position envoyée ${fmtT(new Date(pend.t * 1000).toISOString())}, toujours pas de nouvelle route après 30 min. Vérifie le code et renvoie-la.</p>`
+    : `<p class="warn">Position envoyée ${fmtT(new Date(pend.t * 1000).toISOString())} : nouvelle route en préparation (5 à 15 min).</p>`);
   if (now < start) {
     p.push(`<p class="lead">Départ dans <b>${until(start - now)}</b> · ${fmtT(new Date(start).toISOString())}</p>`);
     p.push(`<p><b>Rien à faire pour l'instant.</b> La route se recalcule toute seule à chaque nouvelle météo (4 fois par jour).</p>`);
@@ -199,7 +214,7 @@ function renderNow() {
     const fromPos = /position saisie/.test(R.start_source);
     p.push(`<p class="lead"><b>Course en cours.</b></p>`);
     p.push(fromPos ? `<p>Route calculée depuis ta position saisie.</p>`
-      : `<p class="warn"><b>À faire :</b> saisis ta position du jeu (onglet Météo). Sinon le routeur suppose que tu as suivi sa route.</p>`);
+      : `<p class="warn"><b>À faire :</b> envoie ta position du jeu (onglet Météo). Sinon le routeur suppose que tu as suivi sa route.</p>`);
     const wp = R.waypoints.find((x) => ts(x.t) > now);
     if (wp) p.push(`<p>Prochain ordre dans le jeu : <b>WP${pad(wp.n)}</b> vers ${fmtT(wp.t).split(" ").pop()}, cap <b>${deg(wp.heading)}</b>, voile <b>${sailFr(wp.sail)}</b>.</p>`);
   } else p.push(`<p class="lead"><b>Course terminée.</b></p>`);
@@ -402,12 +417,14 @@ async function detectApi() {
     $("#gh-route").href = `${base}/route.yml`;
     $("#gh").hidden = false;
   }
+  $("#relay").hidden = state.api || !state.topic;
 }
 function fillForm() {
   const R = state.route; if (!R) return;
-  const f = $("#pos-form");
-  f.sail.innerHTML = `<option value="">je ne sais pas</option>` + R.sail_names.map((s) => `<option value="${s}">${sailFr(s)}</option>`).join("");
-  f.gate.innerHTML = R.gates.map((g, k) => `<option value="${k}" ${k === 1 ? "selected" : ""}>${g.name}</option>`).join("");
+  for (const f of [$("#pos-form"), $("#relay-form")]) {
+    f.sail.innerHTML = `<option value="">je ne sais pas</option>` + R.sail_names.map((s) => `<option value="${s}">${sailFr(s)}</option>`).join("");
+    f.gate.innerHTML = R.gates.map((g, k) => `<option value="${k}" ${k === 1 ? "selected" : ""}>${g.name}</option>`).join("");
+  }
 }
 async function post(path, body) {
   const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
@@ -457,20 +474,27 @@ function renderScenarios() {
 
 // --- boucle -----------------------------------------------------------------------------------
 async function refresh() {
-  const [st, wx] = await Promise.allSettled([getJSON("data/status.json"), getJSON("data/weather-status.json")]);
-  state.status = st.value || state.status; state.wx = wx.value || state.wx;
+  const boat = state.boat;
+  const [st, wx, bst] = await Promise.allSettled([getJSON("data/status.json"), getJSON("data/weather-status.json"),
+    getJSON(bpath("status.json"))]);
+  if (boat !== state.boat) return; // bateau changé pendant le chargement
+  // Ancienne version (un seul bateau) : l'état de la route est dans status.json.
+  if (st.value) state.status = { ...st.value, route: bst.value || st.value.route };
+  state.wx = wx.value || state.wx;
   if (!state.main || state.status?.route?.computed_at !== state.main.computed_at) {
-    try { state.main = await getJSON("data/route.json"); } catch { /* pas encore de route */ }
+    try { state.main = await getJSON(bpath("route.json")); } catch { /* pas encore de route */ }
   }
   try { state.ensSt = await getJSON("data/ensemble-status.json"); } catch { state.ensSt = null; }
-  try { state.expl = await getJSON("data/explain.json"); } catch { state.expl = null; }
+  try { state.expl = await getJSON(bpath("explain.json")); } catch { state.expl = null; }
   try {
-    const e = await getJSON("data/ensemble.json");
+    const e = await getJSON(bpath("ensemble.json"));
     if (e.computed_at !== state.ens?.computed_at) {
       state.ens = e;
-      state.safe = e.recommended !== "gfs" ? await getJSON("data/route-safe.json").catch(() => null) : null;
+      state.safe = e.recommended !== "gfs" ? await getJSON(bpath("route-safe.json")).catch(() => null) : null;
     }
   } catch { state.ens = null; state.safe = null; }
+  if (boat !== state.boat) return;
+  checkPending();
   pickRoute();
   const run = state.status?.weather?.run;
   if (!state.wind || (run && state.wind.run.slice(0, 13) !== run.slice(0, 13))) {
@@ -479,6 +503,83 @@ async function refresh() {
   renderPills(); renderNow(); renderScenarios(); renderBord(); renderRoute(); renderMeteo();
   if (map) { drawRoute(); drawWind(); drawBoat(); }
   if (state.route && !fillForm.done) { fillForm(); fillForm.done = true; }
+}
+
+// --- bateaux ----------------------------------------------------------------------------------
+async function loadBoats() {
+  let b = null;
+  try { b = await getJSON("data/boats.json"); } catch { /* ancienne version : un seul bateau */ }
+  state.boats = Array.isArray(b) ? b : b?.boats || [];
+  state.topic = Array.isArray(b) ? null : b?.ntfy_topic || null;
+  if (!state.boats.length) return;
+  const ids = state.boats.map((x) => x.id);
+  const asked = new URLSearchParams(location.search).get("bateau");
+  const id = ids.includes(asked) ? asked : ids.includes(store.get("bateau")) ? store.get("bateau") : ids[0];
+  const el = $("#boats");
+  el.innerHTML = state.boats.map((x) => `<button data-b="${x.id}">${x.name}</button>`).join("");
+  el.hidden = state.boats.length < 2;
+  el.onclick = (e) => { const t = e.target.closest("[data-b]"); if (t && t.dataset.b !== state.boat) setBoat(t.dataset.b); };
+  setBoat(id, false);
+}
+function setBoat(id, reload = true) {
+  state.boat = id; store.set("bateau", id);
+  const url = new URL(location.href);
+  if (state.boats.length > 1) { url.searchParams.set("bateau", id); history.replaceState(null, "", url); }
+  document.querySelectorAll("#boats button").forEach((b) => b.classList.toggle("on", b.dataset.b === id));
+  document.querySelectorAll("[data-file]").forEach((a) => (a.href = bpath(a.dataset.file)));
+  document.title = state.boats.length > 1 ? `Routeur Rhum · ${boatName()}` : "Routeur Rhum · Ultim";
+  $("#relay-boat").textContent = boatName();
+  const f = $("#relay-form");
+  f.code.value = store.get(`code-${id}`, "");
+  $("#relay-msg").textContent = "";
+  if (!reload) return;
+  Object.assign(state, { main: null, safe: null, ens: null, expl: null, route: null });
+  fitOnce.done = false;
+  refresh().then(() => { if (map && $("#map").clientHeight) fitOnce(); });
+}
+
+// --- envoi de la position sans compte (page publiée → ntfy.sh → routeur) ----------------------
+const normCode = (c) => String(c || "").replace(/\s+/g, "").toLowerCase();
+async function hmacHex(key, text) {
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey("raw", enc.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", k, enc.encode(text)));
+  return [...sig].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+function relayPreview() {
+  const f = $("#relay-form"), lat = parseGame(f.lat.value, true), lon = parseGame(f.lon.value, false);
+  $("#relay-preview").textContent = f.lat.value && f.lon.value
+    ? (Number.isNaN(lat) || Number.isNaN(lon) ? "Position illisible" : `Compris : ${latS(lat)}  ${lonS(lon)}`) : "";
+}
+async function sendPosition(e) {
+  e.preventDefault();
+  const f = e.target, msg = $("#relay-msg"), boat = state.boats.find((b) => b.id === state.boat);
+  const lat = parseGame(f.lat.value, true), lon = parseGame(f.lon.value, false), code = normCode(f.code.value);
+  if (Number.isNaN(lat) || Number.isNaN(lon)) { msg.textContent = "Latitude ou longitude illisible."; return; }
+  if (lat < 5 || lat > 55 || lon < -70 || lon > 5) { msg.textContent = "Cette position est hors du parcours : vérifie N/S et E/W."; return; }
+  if (!boat?.check) { msg.textContent = "L'envoi n'est pas encore activé pour ce bateau (code à régler par Keziah)."; return; }
+  if (!globalThis.crypto?.subtle) { msg.textContent = "Ce navigateur ne permet pas l'envoi (page non sécurisée)."; return; }
+  if ((await hmacHex(code, `routeur-rhum:${boat.id}`)).slice(0, 8) !== boat.check) { msg.textContent = "Code incorrect."; return; }
+  const t = Date.now() / 1000;
+  const data = JSON.stringify({ bateau: boat.id, lat, lon, voile: f.sail.value, porte: +f.gate.value, twa: f.twa.value.trim(), t });
+  const btn = f.querySelector("button[type=submit]"); btn.disabled = true; msg.textContent = "Envoi…";
+  try {
+    const r = await fetch(`https://ntfy.sh/${state.topic}`, { method: "POST", body: JSON.stringify({ data, sig: await hmacHex(code, data) }) });
+    if (!r.ok) throw new Error(`erreur ${r.status}`);
+    store.set(`code-${boat.id}`, f.keep.checked ? f.code.value : "");
+    store.set(`pending-${boat.id}`, JSON.stringify({ t, lat, lon }));
+    msg.textContent = `Position ${latS(lat)} ${lonS(lon)} envoyée. Nouvelle route dans 5 à 15 min : la page se met à jour toute seule.`;
+    f.lat.value = ""; f.lon.value = ""; f.twa.value = ""; relayPreview(); renderNow();
+  } catch (err) { msg.textContent = `Envoi impossible (${err.message}). Vérifie la connexion et réessaie.`; }
+  finally { btn.disabled = false; }
+}
+// Position envoyée mais pas encore prise en compte ? (effacée dès qu'une route plus récente est publiée)
+function pending() {
+  try { return JSON.parse(store.get(`pending-${state.boat}`, "") || "null"); } catch { return null; }
+}
+function checkPending() {
+  const p = pending(), R = state.main;
+  if (p && R && ts(R.published_at || R.computed_at) / 1000 >= p.t) store.set(`pending-${state.boat}`, "");
 }
 
 function initUi() {
@@ -492,6 +593,8 @@ function initUi() {
   sel.value = state.fmt;
   sel.onchange = () => { state.fmt = sel.value; store.set("fmt", state.fmt); renderRoute(); renderBord(); };
   $("#only-next").onchange = renderRoute;
+  $("#relay-form").onsubmit = sendPosition;
+  $("#relay-form").oninput = relayPreview;
   document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
     document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b));
     document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.id === `tab-${b.dataset.tab}`));
@@ -503,12 +606,12 @@ function initUi() {
     e.preventDefault();
     const f = e.target, lat = parseCoord(f.lat.value, true), lon = parseCoord(f.lon.value, false);
     if (Number.isNaN(lat) || Number.isNaN(lon)) { toast("Coordonnées illisibles"); return; }
-    try { await post("/api/position", { lat, lon, sail: f.sail.value || null, gate: +f.gate.value, twa: f.twa.value });
+    try { await post("/api/position", { bateau: state.boat, lat, lon, voile: f.sail.value, porte: +f.gate.value, twa: f.twa.value });
       toast(`Position ${latS(lat)} ${lonS(lon)} enregistrée`); pollJob(); } catch (err) { toast(err.message); }
   };
 }
 
 (async function main() {
-  initUi(); initMap(); await detectApi(); await loadStatic(); await refresh();
+  initUi(); initMap(); await loadBoats(); await detectApi(); await loadStatic(); await refresh();
   setInterval(refresh, 60000);
 })();
