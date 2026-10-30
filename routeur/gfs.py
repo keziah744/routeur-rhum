@@ -211,6 +211,12 @@ class GfsStore:
         p = self.root / "current.json"
         return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
+    def previous_path(self, cycle: str) -> tuple[str, Path] | None:
+        """Cycle complet précédant `cycle` encore sur le disque (celui que le jeu utilise peut-être encore)."""
+        olds = sorted(d for d in self.root.iterdir() if d.is_dir() and re.fullmatch(r"\d{10}", d.name)
+                      and d.name < cycle and (d / "forecast.npz").exists())
+        return (olds[-1].name, olds[-1] / "forecast.npz") if olds else None
+
     def set_current(self, info: dict) -> None:
         tmp = self.root / "current.json.tmp"
         tmp.write_text(json.dumps(info, indent=1), encoding="utf-8")

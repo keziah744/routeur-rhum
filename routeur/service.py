@@ -27,7 +27,7 @@ from .gfs import GfsStore
 from .isochrones import Router, RoutingParams
 from .polar import Polar
 from .roadmap import build_roadmap, check_legs, compare, iso, route_document, to_csv, to_gpx
-from .wind import WindField
+from .wind import SwitchedWind, WindField
 
 log = logging.getLogger("routeur.service")
 
@@ -262,10 +262,14 @@ class Service:
     def compute_route(self, wind_path: str | Path | None = None, start: dict | None = None,
                       progress=None) -> dict:
         cur = self.store.current()
+        given = wind_path
         wind_path = wind_path or (cur and cur["path"])
         if not wind_path:
             raise FileNotFoundError("aucune prévision GFS disponible : lancer « python -m routeur meteo »")
         wind = WindField.load(wind_path)
+        switch = None
+        if not given:
+            wind, switch = self.game_wind(wind, cur)
         st = self.start_state(override=start)
         params = RoutingParams.from_config(self.cfg)
         self.route_status(state="calcul", message=f"Calcul depuis {st['source']}", started_at=iso(time.time()))
@@ -281,7 +285,7 @@ class Service:
                 "gfs_cycle": (cur or {}).get("cycle") if not start or wind_path == (cur or {}).get("path") else None,
                 "gfs_run": iso(wind.run) if wind.run else None, "wind_file": str(wind_path),
                 "start_source": st["source"], "start": {"lat": st["lat"], "lon": st["lon"]},
-                "start_gate": int(st.get("gate", 0)),
+                "start_gate": int(st.get("gate", 0)), "game_switch": switch,
                 "options": self.options, "sail_names": self.polar.sail_names,
                 "gates": [{"name": g.name, "a": g.a, "b": g.b, "cross": g.cross} for g in self.course.gates]}
         doc = route_document(res, rm, meta, check)
@@ -290,6 +294,19 @@ class Service:
         log.info("[%s] route calculée : arrivée %s, %d waypoints, %d changements de voile, %.0f s", self.boat,
                  doc["eta"], len(doc["waypoints"]), len(doc["sail_changes"]), res.stats["compute_s"])
         return doc
+
+    def game_wind(self, wind: WindField, cur: dict | None, now: float | None = None):
+        """Avant l'heure où le jeu charge le nouveau GFS, le bateau navigue encore dans l'ancien."""
+        delay = self.cfg["gfs"].get("game_switch_after_run_h")
+        now = now or time.time()
+        if not delay or not cur or not wind.run or now >= wind.run + delay * 3600:
+            return wind, None
+        prev = self.store.previous_path(cur["cycle"])
+        if not prev:
+            return wind, None
+        at = wind.run + delay * 3600
+        log.info("[%s] jeu encore sur le GFS %s jusqu'à %s", self.boat, prev[0], iso(at))
+        return SwitchedWind(WindField.load(prev[1]), wind, at), {"at": iso(at), "before_cycle": prev[0]}
 
     def publish_route(self, doc: dict) -> None:
         """Écrit la route de ce bateau (avec la comparaison à sa route précédente)."""

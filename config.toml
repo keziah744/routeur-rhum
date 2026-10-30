@@ -17,6 +17,10 @@ retries = 4
 timeout_s = 60
 # Nombre de cycles gardés sur le disque.
 keep_cycles = 3
+# Heure (après le run) où le jeu charge un nouveau cycle : avant, le bateau navigue encore dans le précédent.
+# SUPPOSÉ : SailGrib donne le GFS 0,25° disponible ~5 h 40 après le run ; un joueur dit que le jeu bascule
+# ~2 h après la sortie. À corriger si on observe autre chose dans le jeu (0 = désactivé).
+game_switch_after_run_h = 5.7
 
 [polar]
 # Polaire VR « Ultim BP XI » (_id 21), celle de la course VR « Route du Rhum - Ultim ».

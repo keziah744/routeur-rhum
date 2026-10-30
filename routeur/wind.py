@@ -80,3 +80,39 @@ class WindField:
 
     def beyond_forecast(self, t: float) -> bool:
         return bool(t > self.end)
+
+
+class SwitchedWind:
+    """Vent tel que le jeu le verra : l'ancien cycle GFS jusqu'à l'heure où le jeu bascule, le nouveau ensuite.
+
+    Le nouveau cycle sort quelques heures avant que le jeu ne le charge : router sur lui dès sa sortie ferait
+    suivre aux premières heures un vent que le bateau ne rencontrera pas dans le jeu.
+    """
+
+    def __init__(self, before: WindField, after: WindField, switch_t: float):
+        self.before, self.after, self.switch_t = before, after, float(switch_t)
+        self.valid, self.lats, self.lons = after.valid, after.lats, after.lons
+        self.run, self.label = after.run, after.label
+
+    @property
+    def start(self) -> float:
+        return min(self.before.start, self.after.start)
+
+    @property
+    def end(self) -> float:
+        return self.after.end
+
+    def uv(self, lat, lon, t):
+        tt = np.asarray(t, float)
+        if tt.ndim == 0 or bool(np.all(tt < self.switch_t)) or bool(np.all(tt >= self.switch_t)):
+            src = self.before if float(np.min(tt)) < self.switch_t else self.after
+            return src.uv(lat, lon, t)
+        ub, vb = self.before.uv(lat, lon, t)
+        ua, va = self.after.uv(lat, lon, t)
+        m = np.broadcast_to(tt < self.switch_t, np.shape(ua))
+        return np.where(m, ub, ua), np.where(m, vb, va)
+
+    wind = WindField.wind
+
+    def beyond_forecast(self, t: float) -> bool:
+        return self.after.beyond_forecast(t)

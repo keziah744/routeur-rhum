@@ -175,7 +175,8 @@ function renderBord() {
     <dt>Mise à jour</dt><dd>${w ? fmtT(w.fetched_at) : "–"}</dd>
     <dt>Calcul de route</dt><dd class="${r?.state === "ok" ? "ok" : r?.state === "erreur" ? "bad" : "warn"}">${r ? r.state + (r.compute_s ? " · " + Math.round(r.compute_s) + " s" : "") : "–"}</dd>
     <dt>Calculée le</dt><dd>${fmtT(R.computed_at)}</dd>
-    <dt>Départ du calcul</dt><dd>${R.start_source}</dd>`;
+    <dt>Départ du calcul</dt><dd>${R.start_source}</dd>
+    ${R.game_switch ? `<dt>Météo du jeu</dt><dd>${cycleS(R.game_switch.before_cycle)} jusqu'à ${fmtT(R.game_switch.at)}, puis ${cycleS(R.gfs_cycle)}</dd>` : ""}`;
   const beyond = R.beyond_forecast_from ? ` Au-delà du ${fmtT(R.beyond_forecast_from)}, la route utilise la dernière échéance disponible.` : "";
   $("#disclaimer").textContent = `Route estimée, pas une optimale garantie : GFS 0,25° interpolé, calcul par étapes de 15 min au début puis d'1 h, polaire ${R.boat} reconstruite et pénalités en partie supposées.${beyond}`;
 }
