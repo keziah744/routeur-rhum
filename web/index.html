@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1118">
+<title>Routeur Rhum · Ultim</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b1118'/%3E%3Cpath d='M16 5v19M16 5l9 17H16' stroke='%234cc3d9' stroke-width='2.5' fill='none'/%3E%3Cpath d='M6 26h20' stroke='%23e6edf3' stroke-width='2.5'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><b>RHUM</b><span>Ultim · routeur</span></div>
+  <div class="pills">
+    <span id="pill-wx" class="pill">Météo …</span>
+    <span id="pill-rt" class="pill">Route …</span>
+  </div>
+</header>
+
+<main>
+  <!-- Bord : tableau de bord -->
+  <section id="tab-bord" class="tab active" aria-label="Tableau de bord">
+    <div class="card now" id="now"></div>
+    <div class="choice" hidden><button data-c="safe">Route conseillée</button><button data-c="gfs">Route GFS seule</button></div>
+    <div class="card" id="scen"></div>
+    <div class="grid">
+      <div class="cell wide hero"><label id="eta-label">Arrivée estimée</label><output id="eta">–</output><small id="eta-sub"></small></div>
+      <div class="cell"><label>Distance restante</label><output id="dist">–</output><small>milles nautiques</small></div>
+      <div class="cell"><label>Vitesse théorique</label><output id="spd">–</output><small id="spd-sub"></small></div>
+      <div class="cell"><label>Vent</label><output id="wind">–</output><small id="wind-sub"></small></div>
+      <div class="cell"><label>Voile</label><output id="sail">–</output><small id="sail-sub"></small></div>
+    </div>
+    <div class="card" id="next-wp"></div>
+    <div class="card" id="next-sail"></div>
+    <div class="card" id="cmp"></div>
+    <div class="card kv" id="states"></div>
+    <p class="note" id="disclaimer"></p>
+  </section>
+
+  <!-- Carte -->
+  <section id="tab-carte" class="tab" aria-label="Carte">
+    <div id="map"></div>
+    <div class="mapbar">
+      <div class="row">
+        <span id="wx-time" class="mono">–</span>
+        <label class="chk"><input type="checkbox" id="show-wind" checked> vent</label>
+        <label class="chk"><input type="checkbox" id="show-iso"> isochrones</label>
+        <label class="chk"><input type="checkbox" id="show-prev" checked> ancienne</label>
+        <label class="chk"><input type="checkbox" id="show-ens" checked> scénarios</label>
+      </div>
+      <input type="range" id="slider" min="0" max="0" value="0" aria-label="Heure de la prévision affichée">
+    </div>
+  </section>
+
+  <!-- Feuille de route -->
+  <section id="tab-route" class="tab" aria-label="Feuille de route">
+    <div class="toolbar">
+      <label class="fmt">Écrire les positions comme
+        <select id="fmt">
+          <option value="dms">46°12'30" N · avec secondes</option>
+          <option value="dm">46°12,50' N · minutes à virgule</option>
+          <option value="dd">46.20833 · décimal</option>
+        </select>
+      </label>
+      <label class="chk"><input type="checkbox" id="only-next" checked> 48 h à venir</label>
+      <span class="exports">
+        <a class="btn ghost" href="data/feuille-de-route.csv" download>CSV</a>
+        <a class="btn ghost" href="data/feuille-de-route.gpx" download>GPX</a>
+        <a class="btn ghost" href="data/route.json" download>JSON</a>
+      </span>
+    </div>
+    <div class="choice" hidden><button data-c="safe">Route conseillée</button><button data-c="gfs">Route GFS seule</button></div>
+    <p class="help">Choisis le format qui ressemble à celui du jeu. Touche une position pour la copier, puis colle-la dans le programmateur de Virtual Regatta. <b>Cap</b> = direction à suivre ; <b>TWA</b> = angle avec le vent (+ vent à droite / tribord, − vent à gauche / bâbord).</p>
+    <ol id="wps" class="wps"></ol>
+  </section>
+
+  <!-- Météo et calculs -->
+  <section id="tab-meteo" class="tab" aria-label="Prévisions et calculs">
+    <div class="card kv" id="wx-detail"></div>
+    <div class="card" id="dl"></div>
+    <div class="card" id="actions" hidden>
+      <h3>Actions</h3>
+      <button class="btn" id="btn-recalc">Recalculer la route</button>
+      <form id="pos-form" class="pos">
+        <h3>Position du bateau (lue dans le jeu)</h3>
+        <div class="two">
+          <label>Latitude<input name="lat" inputmode="text" placeholder="46°12,5 N" required></label>
+          <label>Longitude<input name="lon" inputmode="text" placeholder="23°40,1 W" required></label>
+        </div>
+        <div class="two">
+          <label>Voile actuelle (facultatif)<select name="sail"></select></label>
+          <label>Prochaine marque<select name="gate"></select></label>
+        </div>
+        <label>TWA actuelle (facultatif, + tribord / − bâbord)<input name="twa" inputmode="numeric" placeholder="-125"></label>
+        <button class="btn" type="submit">Enregistrer et recalculer</button>
+      </form>
+      <p class="msg" id="job"></p>
+    </div>
+    <div class="card" id="gh" hidden>
+      <h3>Version en ligne</h3>
+      <p>La route se recalcule toute seule dans le cloud à chaque nouvelle météo (vérification toutes les heures).</p>
+      <a class="btn" id="gh-pos" target="_blank" rel="noopener">Saisir ma position</a>
+      <p class="note">Ouvre GitHub : touche « Run workflow », colle la latitude et la longitude du jeu, valide.
+        La nouvelle route apparaît ici après 5 à 10 minutes (recharge la page).</p>
+      <a class="btn ghost" id="gh-route" target="_blank" rel="noopener">Recalculer maintenant</a>
+    </div>
+    <div class="card note" id="api-note"></div>
+  </section>
+</main>
+
+<nav class="tabs" aria-label="Navigation">
+  <button data-tab="bord" class="on"><i>◎</i>Bord</button>
+  <button data-tab="carte"><i>▦</i>Carte</button>
+  <button data-tab="route"><i>☰</i>Route</button>
+  <button data-tab="meteo"><i>≈</i>Météo</button>
+</nav>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
