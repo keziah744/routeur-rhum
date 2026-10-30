@@ -22,3 +22,7 @@ web/data/*
 !web/data/coast.geojson
 !web/data/coast-detail.geojson
 !web/data/course.geojson
+
+# Masque : publié en morceaux (mask.npz.part*) ; fichiers GRIB de test gardés en local
+data/geo/mask.npz
+tests/fixtures/*.grb2

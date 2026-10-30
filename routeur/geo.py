@@ -188,6 +188,20 @@ class LandMask:
         tiles.append(Tile(bbox["lat_min"], bbox["lon_min"], res, m))
         return cls(tiles, [n for n, _ in forbidden])
 
+    @staticmethod
+    def split(path: Path, size: int = 35_000) -> list[Path]:
+        """Découpe mask.npz en morceaux (la connexion coupe les envois de plus de ~40 Ko)."""
+        path = Path(path)
+        for old in path.parent.glob(path.name + ".part*"):
+            old.unlink()
+        data = path.read_bytes()
+        parts = []
+        for k in range(0, len(data), size):
+            q = path.with_name(f"{path.name}.part{k // size}")
+            q.write_bytes(data[k:k + size])
+            parts.append(q)
+        return parts
+
     def save(self, path: Path) -> None:
         arrays = {}
         for k, t in enumerate(self.tiles):
@@ -197,6 +211,14 @@ class LandMask:
 
     @classmethod
     def load(cls, path: Path) -> "LandMask":
+        path = Path(path)
+        if not path.exists():
+            # Version publiée : le masque est découpé en morceaux (mask.npz.part0, part1…), recollés ici.
+            parts = sorted(path.parent.glob(path.name + ".part*"), key=lambda q: int(q.suffix[5:]))
+            if not parts:
+                raise FileNotFoundError(path)
+            import io
+            path = io.BytesIO(b"".join(q.read_bytes() for q in parts))
         d = np.load(path)
         tiles = []
         for k in range(int(d["n"])):

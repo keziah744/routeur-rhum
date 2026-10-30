@@ -16,6 +16,8 @@ from routeur.service import Busy, file_lock
 from routeur.wind import WindField
 
 FIX = Path(__file__).parent / "fixtures"
+if not (FIX / "gfs.t12z.f006.grb2").exists():  # fichiers GRIB de test gardés hors du dépôt public
+    pytest.skip("fichiers GRIB de test absents", allow_module_level=True)
 F6, F9 = (FIX / "gfs.t12z.f006.grb2").read_bytes(), (FIX / "gfs.t12z.f009.grb2").read_bytes()
 NOW = datetime(2026, 10, 25, 18, 30, tzinfo=timezone.utc)
 

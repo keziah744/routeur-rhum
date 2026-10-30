@@ -25,6 +25,7 @@ mask = LandMask.build(gshhg, resolve(course.forbidden_geojson), bbox, cfg["geo"]
                       cfg["geo"]["safety_margin_nm"], course.fine_tiles, cfg["geo"]["fine_resolution"])
 out = resolve("data/geo/mask.npz")
 mask.save(out)
+LandMask.split(out)  # morceaux versionnés dans le dépôt (voir LandMask.load)
 print(f"masque: {out} ({out.stat().st_size / 1e6:.1f} Mo) en {time.time() - t:.0f} s")
 for tile in mask.tiles:
     print(f"  tuile {tile.lat0:.2f}..{tile.lat1:.2f} / {tile.lon0:.2f}..{tile.lon1:.2f} à {tile.res}° :"
