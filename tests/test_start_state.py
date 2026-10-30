@@ -68,6 +68,16 @@ def test_safe_route_preferred_when_same_start(svc):
     assert st["lat"] == pytest.approx(40.0) and "aucune position saisie" in st["source"]
 
 
+def test_boats_with_other_options_never_share_a_route(svc):
+    """Même ligne de départ, mais pas les mêmes options VR : chacun son calcul."""
+    svc.options = {"foils": True, "winch_pro": True}
+    other = S.Service.__new__(S.Service)
+    other.boat, other.bout, other.course = "keziah", svc.bout, svc.course
+    other.options = {"foils": True, "winch_pro": False}
+    a, b = svc.start_signature(), other.start_signature()
+    assert a[:5] == b[:5] and a != b
+
+
 def test_stale_safe_route_ignored(svc):
     S.write_json(svc.bout / "route.json", route(T0 + 5 * H, lat0=45.0))
     S.write_json(svc.bout / "route-safe.json", route(T0 + 2 * H, lat0=40.0))  # d'une ancienne route GFS

@@ -100,6 +100,9 @@ class Service:
         self.boat = boat or self.boats[0]["id"]
         if self.boat not in {b["id"] for b in self.boats}:
             raise ValueError(f"bateau inconnu : {self.boat}")
+        # Options VR : celles de [boat], sauf celles que le bateau redéfinit ([boats.options]).
+        entry = next(b for b in self.boats if b["id"] == self.boat)
+        self.options = {**cfg["boat"], **(entry.get("options") or {})}
         self.out = resolve(cfg["service"]["output_dir"])
         self.bout = self.out / "bateaux" / self.boat
         self.bout.mkdir(parents=True, exist_ok=True)
@@ -133,7 +136,7 @@ class Service:
     def polar(self) -> Polar:
         if self._polar is None:
             pc = self.cfg["polar"]
-            self._polar = Polar.load(resolve(pc["file"]), self.cfg["boat"],
+            self._polar = Polar.load(resolve(pc["file"]), self.options,
                                      resolve(pc["stamina_file"]) if pc.get("stamina_file") else None,
                                      pc.get("stamina_boat_factor", 1.0))
         return self._polar
@@ -279,7 +282,7 @@ class Service:
                 "gfs_run": iso(wind.run) if wind.run else None, "wind_file": str(wind_path),
                 "start_source": st["source"], "start": {"lat": st["lat"], "lon": st["lon"]},
                 "start_gate": int(st.get("gate", 0)),
-                "options": self.cfg["boat"], "sail_names": self.polar.sail_names,
+                "options": self.options, "sail_names": self.polar.sail_names,
                 "gates": [{"name": g.name, "a": g.a, "b": g.b, "cross": g.cross} for g in self.course.gates]}
         doc = route_document(res, rm, meta, check)
         doc["gates_passed_track"] = [p.gate for p in res.points]
@@ -299,6 +302,11 @@ class Service:
         if prev:
             shutil.copyfile(out_route, self.bout / "route-prev.json")
         write_json(out_route, doc, compact=True)
+        from . import alerts
+        msg = alerts.route_change_message(prev, doc) if alerts.enabled() else None
+        if msg:
+            name = next(b.get("name", b["id"]) for b in self.boats if b["id"] == self.boat)
+            alerts.send(self.cfg, self.boat, f"Nouvelle route · {name}", msg)
         (self.bout / "feuille-de-route.csv").write_text(to_csv(doc), encoding="utf-8-sig")
         (self.bout / "feuille-de-route.gpx").write_text(to_gpx(doc), encoding="utf-8")
         msg = (f"Arrivée estimée {doc['eta']} ({doc['duration_h']:.1f} h)" if doc.get("arrived")
@@ -312,7 +320,7 @@ class Service:
         """Deux bateaux de même signature partent du même point au même moment : un seul calcul suffit."""
         st = self.start_state()
         return (round(st["lat"], 3), round(st["lon"], 3), int(st["time"] // 600), int(st.get("gate", 0)),
-                st.get("sail", -1))
+                st.get("sail", -1), tuple(sorted(self.options.items())))
 
     def explanation_stale(self) -> bool:
         """Vrai si l'explication manque, a échoué, ou décrit une autre route que celle affichée."""
@@ -391,6 +399,9 @@ class Service:
                 report[bid] = (read_json(route_file) or {}).get("eta")
             if not any(v not in ("inchangée",) for v in report.values()):
                 log.info("météo inchangée (%s) : routes conservées", w.get("cycle"))
+            from . import alerts
+            last = {b["id"]: (read_json(position_file(b["id"])) or {}).get("time") for b in self.boats}
+            alerts.remind_positions(self.cfg, self.boats, last, self.course.start_time)
             return {"weather": {k: w.get(k) for k in ("cycle", "changed", "max_hour")}, "routes": report}
 
     def ensemble_cycle(self, force: bool = False) -> dict:
@@ -413,7 +424,8 @@ class Service:
                     continue
                 doc_route = read_json(route)
                 sig = (doc_route["start_time"], round(doc_route["start"]["lat"], 3),
-                       round(doc_route["start"]["lon"], 3), doc_route.get("gfs_cycle"))
+                       round(doc_route["start"]["lon"], 3), doc_route.get("gfs_cycle"),
+                       json.dumps(doc_route.get("options"), sort_keys=True))
                 if sig in done:
                     svc.copy_from(done[sig], names=("route-safe.json", "ensemble.json"))
                     svc.write_explanation()

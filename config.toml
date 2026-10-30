@@ -107,3 +107,5 @@ name = "Papa"
 # Sujet ntfy.sh où la page publie les positions (public : seul le code de chaque bateau, secret GitHub
 # ROUTEUR_CODES, protège l'envoi).
 ntfy_topic = "rr-a6116c1aa98c4c1611d8f1c9"
+# Alertes (application ntfy) : sujet <ntfy_topic>-<bateau> ; un appui sur l'alerte ouvre cette page.
+page_url = "https://keziah744.github.io/routeur-rhum/"
