@@ -344,6 +344,7 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
                       "arrived_in": int(e.size), "median_eta": iso(float(np.median(e))) if e.size else None,
                       "p10_eta": iso(float(np.percentile(e, 10))) if e.size else None,
                       "p90_eta": iso(float(np.percentile(e, 90))) if e.size else None,
+                      "etas": [iso(float(x)) for x in np.sort(e)],   # une arrivée par scénario (frise de la page)
                       "_median": float(np.median(e)) if e.size else np.inf,
                       "_p90": float(np.percentile(e, 90)) if e.size else np.inf,
                       "wins": int((fastest == i).sum()), "beats_gfs": int((etas[i] < etas[0] - 60).sum()),
