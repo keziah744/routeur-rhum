@@ -4,6 +4,11 @@ name: Saisir ma position
 on:
   workflow_dispatch:
     inputs:
+      bateau:
+        description: "Bateau"
+        type: choice
+        default: "keziah"
+        options: ["keziah", "papa"]
       latitude:
         description: "Latitude comme dans le jeu (ex. 46°12'30\" N)"
         required: true
@@ -39,6 +44,8 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     env:
       ROUTEUR_PREFER_S3: "1"
+      ROUTEUR_CODE_KEZIAH: ${{ secrets.ROUTEUR_CODE_KEZIAH }}
+      ROUTEUR_CODE_PAPA: ${{ secrets.ROUTEUR_CODE_PAPA }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
@@ -51,23 +58,24 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: |
-            web/data/route.json
-            web/data/route-prev.json
             web/data/status.json
             web/data/weather-status.json
             web/data/wind.json
-            web/data/feuille-de-route.csv
-            web/data/feuille-de-route.gpx
-            web/data/explain.json
-            data/position.json
+            web/data/bateaux/*/route.json
+            web/data/bateaux/*/route-prev.json
+            web/data/bateaux/*/status.json
+            web/data/bateaux/*/feuille-de-route.csv
+            web/data/bateaux/*/feuille-de-route.gpx
+            web/data/bateaux/*/explain.json
+            data/positions
           key: route-${{ github.run_id }}
           restore-keys: route-
       - uses: actions/cache/restore@v4
         with:
           path: |
-            web/data/ensemble.json
-            web/data/route-safe.json
             web/data/ensemble-status.json
+            web/data/bateaux/*/ensemble.json
+            web/data/bateaux/*/route-safe.json
           key: ens-${{ github.run_id }}
           restore-keys: ens-
       - uses: actions/cache/restore@v4
@@ -82,24 +90,26 @@ jobs:
           LON: ${{ inputs.longitude }}
           VOILE: ${{ inputs.voile }}
           PORTE: ${{ inputs.porte }}
+          BATEAU: ${{ inputs.bateau }}
         run: |
           voile="$VOILE"; [ "$voile" = "je ne sais pas" ] && voile=""
-          python -m routeur position --lat "$LAT" --lon "$LON" --voile "$voile" --porte "${PORTE%% *}"
+          python -m routeur --bateau "$BATEAU" position --lat "$LAT" --lon "$LON" --voile "$voile" --porte "${PORTE%% *}"
 
       - run: find data/gfs -name '*.grb2' -delete || true
       - if: always()
         uses: actions/cache/save@v4
         with:
           path: |
-            web/data/route.json
-            web/data/route-prev.json
             web/data/status.json
             web/data/weather-status.json
             web/data/wind.json
-            web/data/feuille-de-route.csv
-            web/data/feuille-de-route.gpx
-            web/data/explain.json
-            data/position.json
+            web/data/bateaux/*/route.json
+            web/data/bateaux/*/route-prev.json
+            web/data/bateaux/*/status.json
+            web/data/bateaux/*/feuille-de-route.csv
+            web/data/bateaux/*/feuille-de-route.gpx
+            web/data/bateaux/*/explain.json
+            data/positions
           key: route-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

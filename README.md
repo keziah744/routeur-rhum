@@ -50,10 +50,21 @@ Le dépôt fait tourner le routeur dans le cloud, sans le PC :
 
 - `.github/workflows/route.yml` : toutes les heures (h:05), nouvelle météo GFS -> nouvelle route, explication, page publiée.
 - `.github/workflows/ensemble.yml` : toutes les heures (h:35), nouveau cycle GEFS ou nouvelle route -> 31 scénarios.
-- `.github/workflows/position.yml` : formulaire « Run workflow » pour saisir la position lue dans le jeu.
+- `.github/workflows/relais.yml` : toutes les 5 min, positions envoyées depuis la page (sans compte) -> route recalculée.
+- `.github/workflows/position.yml` : formulaire « Run workflow » pour saisir la position (secours, compte GitHub).
 
 Les résultats entre deux exécutions sont gardés dans le cache GitHub Actions ; la page est publiée sur GitHub Pages.
 Clé Claude : secret `ANTHROPIC_API_KEY` du dépôt (Settings -> Secrets and variables -> Actions), à mettre soi-même.
+
+### Plusieurs bateaux
+
+`[[boats]]` dans `config.toml` (Keziah, Papa) : météo et scénarios partagés, une position et une route par bateau
+dans `web/data/bateaux/<id>/`. Lien direct : `https://keziah744.github.io/routeur-rhum/?bateau=papa`.
+Deux bateaux partis du même point (avant le départ) ne sont calculés qu'une fois.
+
+Envoi de la position sans compte : la page publie un message signé sur ntfy.sh (sujet `[relay]` de `config.toml`),
+`relais.yml` le relève. Le code de chaque bateau ne circule jamais : il signe le message (HMAC-SHA256). Codes à
+régler soi-même : secrets `ROUTEUR_CODE_KEZIAH` et `ROUTEUR_CODE_PAPA` (majuscules et espaces ignorés).
 
 ## Explications par Claude (facultatif)
 

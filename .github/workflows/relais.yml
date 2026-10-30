@@ -1,0 +1,141 @@
+# Toutes les 5 min : une position envoyée depuis la page (ntfy.sh) ? -> route du bateau recalculée et publiée.
+name: Positions reçues (relais)
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  # Coup d'œil rapide (quelques secondes) : rien de nouveau sur ntfy -> on s'arrête là.
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      new: ${{ steps.poll.outputs.new }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: config.toml
+          sparse-checkout-cone-mode: false
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/relay-state.json
+          key: relay-${{ github.run_id }}
+          restore-keys: relay-
+      - id: poll
+        run: |
+          topic=$(python3 -c "import tomllib; print(tomllib.load(open('config.toml', 'rb'))['relay']['ntfy_topic'])")
+          since=$(python3 -c "import json; print(json.load(open('data/relay-state.json')).get('last_id') or '12h')" 2>/dev/null || echo 12h)
+          if curl -fsS --max-time 30 "https://ntfy.sh/$topic/json?poll=1&since=$since" | grep -q '"event":"message"'; then
+            echo "new=1" >> "$GITHUB_OUTPUT"; echo "Nouveaux messages depuis $since."
+          else
+            echo "Rien de nouveau depuis $since."
+          fi
+
+  relay:
+    needs: check
+    if: needs.check.outputs.new == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: route
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      ROUTEUR_PREFER_S3: "1"
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ROUTEUR_CODE_KEZIAH: ${{ secrets.ROUTEUR_CODE_KEZIAH }}
+      ROUTEUR_CODE_PAPA: ${{ secrets.ROUTEUR_CODE_PAPA }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            web/data/status.json
+            web/data/weather-status.json
+            web/data/wind.json
+            web/data/bateaux/*/route.json
+            web/data/bateaux/*/route-prev.json
+            web/data/bateaux/*/status.json
+            web/data/bateaux/*/feuille-de-route.csv
+            web/data/bateaux/*/feuille-de-route.gpx
+            web/data/bateaux/*/explain.json
+            data/positions
+          key: route-${{ github.run_id }}
+          restore-keys: route-
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            web/data/ensemble-status.json
+            web/data/bateaux/*/ensemble.json
+            web/data/bateaux/*/route-safe.json
+          key: ens-${{ github.run_id }}
+          restore-keys: ens-
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/gfs
+          key: gfs-${{ github.run_id }}
+          restore-keys: gfs-
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/relay-state.json
+          key: relay-${{ github.run_id }}
+          restore-keys: relay-
+      - id: before
+        run: echo "gfs=$(sha1sum data/gfs/current.json 2>/dev/null | cut -c1-40)" >> "$GITHUB_OUTPUT"
+
+      - name: Positions + recalcul
+        run: python -m routeur relais
+
+      - id: after
+        run: |
+          echo "gfs=$(sha1sum data/gfs/current.json 2>/dev/null | cut -c1-40)" >> "$GITHUB_OUTPUT"
+          find data/gfs -name '*.grb2' -delete || true
+      - if: steps.after.outputs.gfs != steps.before.outputs.gfs
+        uses: actions/cache/save@v4
+        with:
+          path: data/gfs
+          key: gfs-${{ github.run_id }}-${{ github.run_attempt }}
+      - if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/relay-state.json
+          key: relay-${{ github.run_id }}-${{ github.run_attempt }}
+      - if: hashFiles('data/.relais-nouveau') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            web/data/status.json
+            web/data/weather-status.json
+            web/data/wind.json
+            web/data/bateaux/*/route.json
+            web/data/bateaux/*/route-prev.json
+            web/data/bateaux/*/status.json
+            web/data/bateaux/*/feuille-de-route.csv
+            web/data/bateaux/*/feuille-de-route.gpx
+            web/data/bateaux/*/explain.json
+            data/positions
+          key: route-${{ github.run_id }}-${{ github.run_attempt }}
+      - if: hashFiles('data/.relais-nouveau') != ''
+        uses: actions/configure-pages@v5
+      - if: hashFiles('data/.relais-nouveau') != ''
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - if: hashFiles('data/.relais-nouveau') != ''
+        id: deploy
+        uses: actions/deploy-pages@v4
