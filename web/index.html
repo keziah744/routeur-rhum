@@ -3,147 +3,158 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b1118">
+<meta name="theme-color" content="#0a1017">
 <title>Routeur Rhum · Ultim</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b1118'/%3E%3Cpath d='M16 5v19M16 5l9 17H16' stroke='%234cc3d9' stroke-width='2.5' fill='none'/%3E%3Cpath d='M6 26h20' stroke='%23e6edf3' stroke-width='2.5'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a1017'/%3E%3Cpath d='M16 5v19M16 5l9 17H16' stroke='%234cc3d9' stroke-width='2.5' fill='none'/%3E%3Cpath d='M6 26h20' stroke='%23e8eef4' stroke-width='2.5'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="top">
-  <div class="brand"><b>RHUM</b><span>Ultim · routeur</span></div>
-  <div class="seg boats" id="boats" hidden aria-label="Bateau affiché"></div>
-  <div class="pills">
-    <span id="pill-wx" class="pill">Météo …</span>
-    <span id="pill-rt" class="pill">Route …</span>
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5v19M16 5l9 17H16" class="sail"/><path d="M6 26h20"/></svg>
+    <b>Rhum</b><span>Ultim</span>
   </div>
+  <div class="seg boats" id="boats" hidden aria-label="Bateau affiché"></div>
+  <span id="status" class="status" role="status"><i aria-hidden="true"></i><span>…</span></span>
 </header>
 
 <main>
-  <!-- Bord : tableau de bord -->
+  <!-- Bord : l'essentiel d'un coup d'œil -->
   <section id="tab-bord" class="tab active" aria-label="Tableau de bord">
-    <div class="card now" id="now"></div>
-    <div class="choice" hidden><button data-c="safe">Route conseillée</button><button data-c="gfs">Route GFS seule</button></div>
-    <div class="card" id="scen"></div>
-    <div class="grid">
-      <div class="cell wide hero"><label id="eta-label">Arrivée estimée</label><output id="eta">–</output><small id="eta-sub"></small></div>
-      <div class="cell"><label>Distance restante</label><output id="dist">–</output><small>milles nautiques</small></div>
-      <div class="cell"><label>Vitesse théorique</label><output id="spd">–</output><small id="spd-sub"></small></div>
-      <div class="cell"><label>Vent</label><output id="wind">–</output><small id="wind-sub"></small></div>
-      <div class="cell"><label>Voile</label><output id="sail">–</output><small id="sail-sub"></small></div>
-    </div>
-    <div class="card" id="next-wp"></div>
-    <div class="card" id="next-sail"></div>
-    <div class="card" id="cmp"></div>
-    <div class="card kv" id="states"></div>
-    <p class="note" id="disclaimer"></p>
+    <section class="arrive" id="arrive"></section>
+    <div class="choice" hidden role="group" aria-label="Route affichée"><button data-c="safe">Route conseillée</button><button data-c="gfs">Route GFS seule</button></div>
+    <p class="choice-cap" id="choice-cap"></p>
+    <section class="todos" id="todo"></section>
+    <section class="block order" id="next-wp"></section>
+    <section class="block slim" id="next-sail"></section>
+    <dl class="stats" id="stats"></dl>
+    <p class="change" id="change"></p>
+    <section class="block why" id="why"></section>
+    <details class="more">
+      <summary>Comment c'est calculé</summary>
+      <div id="scen"></div>
+      <div id="cmp"></div>
+      <dl class="kv" id="states"></dl>
+      <p class="note" id="disclaimer"></p>
+    </details>
   </section>
 
   <!-- Carte -->
   <section id="tab-carte" class="tab" aria-label="Carte">
     <div id="map"></div>
     <div class="mapbar">
-      <div class="row">
-        <span id="wx-time" class="mono">–</span>
-        <label class="chk"><input type="checkbox" id="show-wind" checked> vent</label>
-        <label class="chk"><input type="checkbox" id="show-iso"> isochrones</label>
-        <label class="chk"><input type="checkbox" id="show-prev" checked> ancienne</label>
-        <label class="chk"><input type="checkbox" id="show-ens" checked> scénarios</label>
-      </div>
+      <p id="wx-time" class="maptime">–</p>
       <input type="range" id="slider" min="0" max="0" value="0" aria-label="Heure de la prévision affichée">
+      <div class="chips">
+        <label class="chip"><input type="checkbox" id="show-wind" checked>Vent</label>
+        <label class="chip"><input type="checkbox" id="show-ens" checked>Scénarios</label>
+        <label class="chip"><input type="checkbox" id="show-prev" checked>Ancienne route</label>
+        <label class="chip"><input type="checkbox" id="show-iso">Isochrones</label>
+      </div>
+      <p class="legend" aria-label="Couleurs du vent en nœuds">
+        <span><i style="background:#4b6c8a"></i>&lt;8</span><span><i style="background:#4cc3d9"></i>8</span><span><i style="background:#5fcf80"></i>14</span><span><i style="background:#f2b84b"></i>20</span><span><i style="background:#ef7b5a"></i>26</span><span><i style="background:#ef6461"></i>34 kt</span>
+      </p>
     </div>
   </section>
 
-  <!-- Feuille de route -->
-  <section id="tab-route" class="tab" aria-label="Feuille de route">
-    <div class="toolbar">
-      <label class="fmt">Écrire les positions comme
+  <!-- Ordres à programmer dans le jeu -->
+  <section id="tab-route" class="tab" aria-label="Ordres à programmer">
+    <h2 class="page-h">Ordres à programmer</h2>
+    <p class="lede">Touche une position pour la copier, puis colle-la dans le programmateur du jeu.</p>
+    <div class="choice" hidden role="group" aria-label="Route affichée"><button data-c="safe">Route conseillée</button><button data-c="gfs">Route GFS seule</button></div>
+    <div class="tools">
+      <label class="field">Format des positions
         <select id="fmt">
           <option value="dms">46°12'30" N · avec secondes</option>
           <option value="dm">46°12,50' N · minutes à virgule</option>
           <option value="dd">46.20833 · décimal</option>
         </select>
       </label>
-      <label class="chk"><input type="checkbox" id="only-next" checked> 48 h à venir</label>
-      <span class="exports">
-        <a class="btn ghost" data-file="feuille-de-route.csv" download>CSV</a>
-        <a class="btn ghost" data-file="feuille-de-route.gpx" download>GPX</a>
-        <a class="btn ghost" data-file="route.json" download>JSON</a>
-      </span>
+      <label class="switch"><input type="checkbox" id="only-next" checked><span>48 h à venir</span></label>
     </div>
-    <div class="choice" hidden><button data-c="safe">Route conseillée</button><button data-c="gfs">Route GFS seule</button></div>
-    <p class="help">Choisis le format qui ressemble à celui du jeu. Touche une position pour la copier, puis colle-la dans le programmateur de Virtual Regatta. <b>Cap</b> = direction à suivre ; <b>TWA</b> = angle avec le vent (+ vent à droite / tribord, − vent à gauche / bâbord).</p>
-    <ol id="wps" class="wps"></ol>
+    <ol id="wps" class="log"></ol>
+    <p class="legend-txt"><b>Cap</b> : direction fixe. <b>TWA</b> : angle fixe avec le vent, + vent à droite (tribord), − vent à gauche (bâbord).</p>
+    <p class="exports">Télécharger :
+      <a data-file="feuille-de-route.csv" download>CSV</a>
+      <a data-file="feuille-de-route.gpx" download>GPX</a>
+      <a data-file="route.json" download>JSON</a>
+    </p>
   </section>
 
-  <!-- Météo et calculs -->
-  <section id="tab-meteo" class="tab" aria-label="Prévisions et calculs">
-    <div class="card" id="relay" hidden>
-      <h3>Envoyer ma position · <span id="relay-boat"></span></h3>
-      <p class="note">Recopie la position affichée dans le jeu. Des espaces suffisent à la place de ° ' ".
-        Envoie-la toutes les 4 à 6 h, et dès que tu t'écartes de la route.</p>
+  <!-- Position, alertes et coulisses -->
+  <section id="tab-pos" class="tab" aria-label="Ma position">
+    <section class="block" id="relay" hidden>
+      <h2>Envoyer ma position <span class="who" id="relay-boat"></span></h2>
+      <p class="lede">Recopie la position affichée dans le jeu, toutes les 4 à 6 h et dès que tu t'écartes de la route. Des espaces suffisent à la place de ° ' ".</p>
       <form id="relay-form" class="pos" autocomplete="off">
         <div class="two">
           <label>Latitude<input name="lat" placeholder="46 12 30 N" autocapitalize="characters" spellcheck="false" required></label>
           <label>Longitude<input name="lon" placeholder="23 40 06 W" autocapitalize="characters" spellcheck="false" required></label>
         </div>
-        <p class="note" id="relay-preview"></p>
+        <p class="preview" id="relay-preview"></p>
         <div class="two">
-          <label>Voile actuelle (facultatif)<select name="sail"></select></label>
-          <label>Prochaine marque<select name="gate"></select></label>
+          <label>Voile actuelle<select name="sail"></select></label>
+          <label>TWA actuelle<input name="twa" inputmode="text" placeholder="-125"></label>
         </div>
-        <label>TWA actuelle (facultatif, + tribord / − bâbord)<input name="twa" inputmode="text" placeholder="-125"></label>
+        <label>Prochaine marque<select name="gate"></select></label>
         <label>Code du bateau<input name="code" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" required></label>
-        <label class="chk"><input type="checkbox" name="keep" checked> retenir le code sur ce téléphone</label>
+        <label class="chk"><input type="checkbox" name="keep" checked>Retenir le code sur ce téléphone</label>
         <button class="btn" type="submit">Envoyer ma position</button>
-        <button class="btn ghost" type="button" id="relay-recalc">Recalculer ma route sans changer la position</button>
+        <p class="msg" id="relay-msg" role="status"></p>
+        <button class="link" type="button" id="relay-recalc">Recalculer ma route sans changer la position</button>
       </form>
-      <p class="msg" id="relay-msg"></p>
-    </div>
-    <div class="card" id="alerts" hidden>
-      <h3>Alertes sur ton téléphone · <span id="alerts-boat"></span></h3>
-      <p>Une alerte quand la route change vraiment (arrivée décalée d'1 h ou plus, ou route des 24 h à venir déplacée
-        de 15 milles), et un rappel quand ta position date de plus de 6 h.</p>
-      <ol class="steps">
-        <li>Installe l'application gratuite <b>ntfy</b> (App Store ou Play Store), sans compte.</li>
-        <li>Dans ntfy, touche <b>+</b> et abonne-toi à ce sujet :
-          <div class="line"><code id="alerts-topic" class="mono"></code><button class="copy" id="alerts-copy">Copier</button></div></li>
-        <li>Autorise les notifications quand ntfy le demande.</li>
-      </ol>
-    </div>
-    <div class="card kv" id="wx-detail"></div>
-    <div class="card" id="dl"></div>
-    <div class="card" id="actions" hidden>
-      <h3>Actions</h3>
-      <button class="btn" id="btn-recalc">Recalculer la route</button>
+    </section>
+
+    <section class="block" id="actions" hidden>
+      <h2>Position du bateau</h2>
+      <p class="lede">Serveur local : la position est enregistrée sur ce PC.</p>
       <form id="pos-form" class="pos">
-        <h3>Position du bateau (lue dans le jeu)</h3>
         <div class="two">
           <label>Latitude<input name="lat" inputmode="text" placeholder="46°12,5 N" required></label>
           <label>Longitude<input name="lon" inputmode="text" placeholder="23°40,1 W" required></label>
         </div>
         <div class="two">
-          <label>Voile actuelle (facultatif)<select name="sail"></select></label>
-          <label>Prochaine marque<select name="gate"></select></label>
+          <label>Voile actuelle<select name="sail"></select></label>
+          <label>TWA actuelle<input name="twa" inputmode="numeric" placeholder="-125"></label>
         </div>
-        <label>TWA actuelle (facultatif, + tribord / − bâbord)<input name="twa" inputmode="numeric" placeholder="-125"></label>
+        <label>Prochaine marque<select name="gate"></select></label>
         <button class="btn" type="submit">Enregistrer et recalculer</button>
+        <button class="link" type="button" id="btn-recalc">Recalculer la route sans changer la position</button>
       </form>
-      <p class="msg" id="job"></p>
-    </div>
-    <div class="card" id="gh" hidden>
-      <h3>Version en ligne</h3>
-      <p>La route se recalcule toute seule dans le cloud à chaque nouvelle météo (vérification toutes les heures).</p>
-    </div>
-    <div class="card note" id="api-note"></div>
+      <p class="msg" id="job" role="status"></p>
+    </section>
+
+    <section class="block" id="alerts" hidden>
+      <h2>Alertes sur ton téléphone <span class="who" id="alerts-boat"></span></h2>
+      <p class="lede">Une alerte quand la route change vraiment (arrivée décalée d'1 h ou plus, ou route des 24 h à venir déplacée de 15 milles), et un rappel quand ta position date de plus de 6 h.</p>
+      <ol class="steps">
+        <li>Installe l'application gratuite <b>ntfy</b> (App Store ou Play Store), sans compte.</li>
+        <li>Dans ntfy, touche <b>+</b> et abonne-toi à ce sujet :
+          <span class="topic"><code id="alerts-topic"></code><button class="copy" id="alerts-copy" type="button">Copier</button></span></li>
+        <li>Autorise les notifications quand ntfy le demande.</li>
+      </ol>
+    </section>
+
+    <details class="more">
+      <summary>Météo et état du calcul</summary>
+      <dl class="kv" id="wx-detail"></dl>
+      <div id="dl"></div>
+      <p class="note" id="gh" hidden>La route se recalcule toute seule dans le cloud à chaque nouvelle météo.</p>
+      <p class="note" id="api-note"></p>
+    </details>
   </section>
 </main>
 
 <nav class="tabs" aria-label="Navigation">
-  <button data-tab="bord" class="on"><i>◎</i>Bord</button>
-  <button data-tab="carte"><i>▦</i>Carte</button>
-  <button data-tab="route"><i>☰</i>Route</button>
-  <button data-tab="meteo"><i>≈</i>Météo</button>
+  <button data-tab="bord" class="on" aria-current="page">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>Bord</button>
+  <button data-tab="carte">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5L3.5 6.5v13L9 17.5l6 2 5.5-2v-13L15 6.5z"/><path d="M9 4.5v13M15 6.5v13"/></svg>Carte</button>
+  <button data-tab="route">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="6" r="1.5"/><circle cx="5.5" cy="12" r="1.5"/><circle cx="5.5" cy="18" r="1.5"/><path d="M10 6h10M10 12h10M10 18h7"/></svg>Ordres</button>
+  <button data-tab="pos">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Position</button>
 </nav>
 <div id="toast" role="status" aria-live="polite"></div>
 

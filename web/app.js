@@ -23,6 +23,30 @@ const dtGwada = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "2-dig
 const fmtT = (iso) => (iso ? dtLocal.format(new Date(iso)) : "–");
 const fmtZ = (iso) => (iso ? dtUtc.format(new Date(iso)).replace(" ", " ") + " UTC" : "");
 const pad = (n, w = 2) => String(n).padStart(w, "0");
+const dtLong = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+const dtDay = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" });
+const dtDayShort = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric" });
+const dtHM = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
+const hm = (t) => dtHM.format(new Date(t));
+const fr1 = (x) => x.toFixed(1).replace(".", ",");
+
+// Icônes dessinées (trait 1,75, même famille que la barre d'onglets).
+const ICONS = {
+  copy: '<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>',
+  pin: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16.2 9.5"/>',
+  alert: '<path d="M12 3.8l9 15.7H3z"/><path d="M12 10v4M12 16.8v.01"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
+  flag: '<path d="M5.5 21V4M5.5 4.5h11l-2.2 4 2.2 4h-11"/>',
+  sync: '<path d="M19.5 11A7.5 7.5 0 0 0 6 6.6L4.5 8M4.5 13A7.5 7.5 0 0 0 18 17.4l1.5-1.4"/><path d="M4.5 4v4h4M19.5 20v-4h-4"/>',
+  sail: '<path d="M12 3.5v14"/><path d="M12 4.5c3.8 2.8 6 7.4 6 12.5h-6"/><path d="M10 7.5c-2.6 2.6-4 5.8-4 9.5h4"/><path d="M4 20.5h16"/>',
+};
+const ico = (k) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>`;
+const swatch = (s) => `<i class="sw" style="background:${SAIL_COLORS[s] || "#999"}"></i>`;
+// Chaque position se copie d'une touche ; « both » ajoute un bouton qui copie les deux d'un coup.
+const coordsHtml = (w, both = true) => `<div class="c"><button class="coord" data-copy="${latS(w.lat)}" aria-label="Copier la latitude">${latS(w.lat)}</button>
+  <button class="coord" data-copy="${lonS(w.lon)}" aria-label="Copier la longitude">${lonS(w.lon)}</button>
+  ${both ? `<button class="copy" data-copy="${latS(w.lat)} ${lonS(w.lon)}" aria-label="Copier latitude et longitude">${ico("copy")}</button>` : ""}</div>`;
 
 function coord(v, pos, neg, degW) {
   const h = v >= 0 ? pos : neg, a = Math.abs(v);
@@ -124,59 +148,90 @@ function frameData(k) {
 }
 
 // --- tableau de bord --------------------------------------------------------------------------
-function renderBord() {
-  const R = state.route, S = state.status;
-  if (!R) { $("#eta").textContent = "–"; $("#eta-sub").textContent = "Aucune route calculée"; return; }
-  const now = Date.now();
-  const names = R.sail_names;
-  // Avec les scénarios : l'arrivée la plus probable (médiane) de la route affichée, et sa fourchette.
-  const cand = state.ens?.candidates.find((c) => c.id === (state.route === state.safe ? state.ens.recommended : "gfs"));
-  if (cand?.median_eta) {
-    $("#eta-label").textContent = "Arrivée la plus probable";
-    $("#eta").textContent = fmtT(cand.median_eta);
-    $("#eta-sub").textContent = `8 cas sur 10 : ${fmtT(cand.p10_eta)} – ${fmtT(cand.p90_eta)} · Guadeloupe ${dtGwada.format(new Date(cand.median_eta))}`;
-  } else {
-    $("#eta-label").textContent = "Arrivée estimée";
-    $("#eta").textContent = R.eta ? fmtT(R.eta) : "non atteinte";
-    $("#eta-sub").textContent = R.eta ? `${fmtZ(R.eta)} · Guadeloupe ${dtGwada.format(new Date(R.eta))} · ${hoursS(R.duration_h)} de course` : "Arrivée hors de la durée de calcul";
+// Candidat des scénarios qui correspond à la route affichée (conseillée ou GFS seule).
+const shownCand = () => state.ens?.candidates.find((c) => c.id === (state.route === state.safe ? state.ens.recommended : "gfs"));
+
+// Frise des arrivées : un point par version de la météo, la bande = 8 cas sur 10, le trait = la plus probable.
+function fanHtml(c) {
+  const T = (c.etas || []).map(ts).filter(Number.isFinite);
+  const p10 = ts(c.p10_eta), p90 = ts(c.p90_eta), med = ts(c.median_eta);
+  const lo0 = Math.min(p10, ...T), hi0 = Math.max(p90, ...T);
+  const padT = Math.max((hi0 - lo0) * 0.08, 3 * 3600e3), lo = lo0 - padT, hi = hi0 + padT;
+  const X = (t) => ((t - lo) / (hi - lo)) * 100;
+  const bins = 28, lvl = new Map();
+  const dots = T.map((t) => {
+    const b = Math.min(bins - 1, Math.floor(((t - lo) / (hi - lo)) * bins)), l = lvl.get(b) || 0;
+    lvl.set(b, l + 1);
+    return `<i style="left:${(((b + 0.5) / bins) * 100).toFixed(2)}%;--l:${l}"></i>`;
+  });
+  const days = [];
+  const d = new Date(lo); d.setHours(0, 0, 0, 0);
+  for (; d.getTime() < hi; d.setDate(d.getDate() + 1)) {
+    const m = d.getTime(), noon = m + 12 * 3600e3;
+    if (m > lo) days.push(`<b class="mid" style="left:${X(m).toFixed(2)}%"></b>`);
+    if (noon > lo + 2 * 3600e3 && noon < hi - 2 * 3600e3) days.push(`<span class="day" style="left:${X(noon).toFixed(2)}%">${dtDayShort.format(new Date(noon))}</span>`);
   }
+  const label = `${T.length || "Plusieurs"} arrivées possibles, la plus probable ${fmtT(c.median_eta)}`;
+  return `<div class="fan" style="--rows:${Math.max(1, ...lvl.values())}" role="img" aria-label="${label}">
+    <div class="band" style="left:${X(p10).toFixed(2)}%;width:${(X(p90) - X(p10)).toFixed(2)}%"></div>
+    ${days.join("")}${dots.join("")}<b class="med" style="left:${X(med).toFixed(2)}%"></b></div>`;
+}
+
+function renderBord() {
+  const R = state.route, S = state.status, now = Date.now();
+  if (!R) {
+    $("#arrive").innerHTML = `<h1>Pas encore de route</h1><p class="sub">Elle apparaît dès que la première météo est calculée.</p>`;
+    for (const k of ["#next-wp", "#next-sail", "#stats", "#cmp", "#states"]) $(k).innerHTML = "";
+    return;
+  }
+  const names = R.sail_names, cand = shownCand();
+  // Avec les scénarios : l'arrivée la plus probable (médiane) de la route affichée, et sa fourchette.
+  const eta = cand?.median_eta || R.eta;
+  let h = eta ? `<h1><span>Arrivée</span> ${dtLong.format(new Date(eta))} à ${hm(eta)}</h1>
+    <p class="sub">${cand?.median_eta ? "La plus probable" : "Estimée"}, à l'heure de ton téléphone. En Guadeloupe : ${dtGwada.format(new Date(eta))}.</p>`
+    : `<h1>Arrivée hors de la durée de calcul</h1>`;
+  if (cand?.median_eta) {
+    const c = confidence(cand), n = cand.etas?.length;
+    h += fanHtml(cand) + `<p class="fan-cap">${n ? `Chaque point est une version de la météo (${n}). ` : ""}8 sur 10 arrivent entre
+      <b>${fmtT(cand.p10_eta)}</b> et <b>${fmtT(cand.p90_eta)}</b>. Fiabilité <b class="${c.cls}">${c.label}</b>.</p>`;
+  }
+  $("#arrive").innerHTML = h;
+
   const at = trackAt(now);
   const cur = at && !at.before ? at : { i: 0, lat: R.track[0][0], lon: R.track[0][1], p: R.track[0] };
   let rest = 0; const tr = R.track;
-  if (cur) { rest += hav(cur.lat, cur.lon, tr[Math.min(cur.i + 1, tr.length - 1)][0], tr[Math.min(cur.i + 1, tr.length - 1)][1]);
-    for (let k = cur.i + 1; k < tr.length - 1; k++) rest += hav(tr[k][0], tr[k][1], tr[k + 1][0], tr[k + 1][1]); }
-  $("#dist").textContent = Math.round(rest).toLocaleString("fr-FR");
-  const p = cur.p;
-  $("#spd").textContent = `${p[6].toFixed(1)} kt`;
-  $("#spd-sub").textContent = at?.before ? "au départ" : "selon la route, maintenant";
-  const wd = windAt(cur.lat, cur.lon, Math.max(now, ts(R.start_time)));
-  $("#wind").textContent = wd ? `${deg(wd.twd)} ${wd.tws.toFixed(0)} kt` : `${p[4].toFixed(0)} kt`;
-  $("#wind-sub").textContent = `TWA ${twaS(p[5])} sur la route`;
-  $("#sail").textContent = sailFr(names[p[3]]);
-  $("#sail-sub").innerHTML = `<span class="sw" style="background:${SAIL_COLORS[names[p[3]]] || "#999"}"></span>voile recommandée`;
+  rest += hav(cur.lat, cur.lon, tr[Math.min(cur.i + 1, tr.length - 1)][0], tr[Math.min(cur.i + 1, tr.length - 1)][1]);
+  for (let k = cur.i + 1; k < tr.length - 1; k++) rest += hav(tr[k][0], tr[k][1], tr[k + 1][0], tr[k + 1][1]);
+  const p = cur.p, wd = windAt(cur.lat, cur.lon, Math.max(now, ts(R.start_time)));
+  $("#stats").innerHTML = `
+    <div><dt>Distance restante</dt><dd>${Math.round(rest).toLocaleString("fr-FR")}<small>milles</small></dd></div>
+    <div><dt>Vitesse ${at?.before ? "au départ" : "prévue"}</dt><dd>${fr1(p[6])}<small>kt</small></dd></div>
+    <div><dt>Vent ${at?.before ? "au départ" : "maintenant"}</dt><dd>${wd ? `${deg(wd.twd)} · ${Math.round(wd.tws)}` : Math.round(p[4])}<small>kt</small></dd></div>
+    <div><dt>Voile</dt><dd class="wrap">${swatch(names[p[3]])}${sailFr(names[p[3]])}</dd></div>`;
 
-  const nextWp = R.waypoints.find((w) => ts(w.t) > now) || R.waypoints[0];
-  $("#next-wp").innerHTML = nextWp ? `<h3>Prochain waypoint · WP${pad(nextWp.n)}</h3>
-    <div class="line"><span class="big">${latS(nextWp.lat)}  ${lonS(nextWp.lon)}</span><button class="copy" data-copy="${latS(nextWp.lat)} ${lonS(nextWp.lon)}">Copier</button></div>
-    <div class="line note"><span>${fmtT(nextWp.t)}${ts(nextWp.t) > now ? ` · dans ${until(ts(nextWp.t) - now)}` : ""}</span><span>${orderS(nextWp)} · ${sailFr(nextWp.sail)}</span></div>
-    <div class="note">${nextWp.reason}</div>` : "";
-  const nextSail = R.sail_changes.find((c) => ts(c.t) > now);
-  $("#next-sail").innerHTML = nextSail ? `<h3>Prochain changement de voile</h3>
-    <div class="line"><span class="big">${sailFr(nextSail.sail_from)} → ${sailFr(nextSail.sail_to)}</span><span class="mono">+${nextSail.gain_pct} %</span></div>
-    <div class="note">${fmtT(nextSail.t)} · ${latS(nextSail.lat)} ${lonS(nextSail.lon)} · TWA ${twaS(nextSail.twa)} · ${nextSail.tws} kt</div>` : "";
+  const wp = R.waypoints.find((w) => ts(w.t) > now);
+  $("#next-wp").innerHTML = wp ? `<h2>${wp.n === 0 ? "Premier ordre, au départ" : "Prochain ordre"} <span class="tag">WP${pad(wp.n)}</span></h2>
+    <p class="when">${ico("clock")}${fmtT(wp.t)} · dans ${until(ts(wp.t) - now)}</p>
+    <p class="order-main"><span>${orderS(wp)}</span><span class="sail">${swatch(wp.sail)}${sailFr(wp.sail)}</span></p>
+    ${coordsHtml(wp)}
+    <p class="why-line">${[wp.reason, orderWhy(wp)].filter(Boolean).join(" · ")}</p>` : "";
+  const sc = R.sail_changes.find((c) => ts(c.t) > now);
+  $("#next-sail").innerHTML = sc ? `${ico("sail")}<span>Changement de voile ${fmtT(sc.t)} (dans ${until(ts(sc.t) - now)}) :
+    ${sailFr(sc.sail_from)} → <b>${sailFr(sc.sail_to)}</b>, +${String(sc.gain_pct).replace(".", ",")} % de vitesse.</span>` : "";
+
   const C = R.comparison;
   $("#cmp").innerHTML = C ? `<h3>Par rapport à la route précédente</h3>
-    <div class="line"><span>ETA</span><b class="mono ${C.eta_delta_h > 0 ? "warn" : "ok"}">${C.eta_delta_h == null ? "–" : (C.eta_delta_h > 0 ? "+" : "") + C.eta_delta_h.toFixed(1) + " h"}</b></div>
-    <div class="line"><span>Écart de trajectoire</span><b class="mono">max ${C.max_deviation_nm ?? "–"} nm · moy. ${C.mean_deviation_nm ?? "–"} nm</b></div>
-    <div class="note">Ancienne route : ${C.previous_cycle ? "GFS " + C.previous_cycle.slice(6, 8) + "/" + C.previous_cycle.slice(4, 6) + " " + C.previous_cycle.slice(8) + "z" : "?"}, calculée ${fmtT(C.previous_computed_at)}</div>` : "";
-  const w = S?.weather, r = S?.route;
+    <p>Arrivée <b class="${C.eta_delta_h > 0 ? "warn" : "ok"}">${C.eta_delta_h == null ? "–" : (C.eta_delta_h > 0 ? "+" : "") + fr1(C.eta_delta_h) + " h"}</b>,
+      écart de trajectoire ${C.max_deviation_nm ?? "–"} milles au plus, ${C.mean_deviation_nm ?? "–"} en moyenne.</p>
+    <p class="note">Ancienne route : ${C.previous_cycle ? cycleS(C.previous_cycle) : "?"}, calculée ${fmtT(C.previous_computed_at)}.</p>` : "";
+  const w = S?.weather, r = S?.route, x = state.expl;
   $("#states").innerHTML = `
-    <dt>Météo</dt><dd class="${w?.stale ? "warn" : "ok"}">${w ? cycleS(w.cycle) + " · âge " + w.age_h.toFixed(1) + " h" : "–"}</dd>
-    <dt>Mise à jour</dt><dd>${w ? fmtT(w.fetched_at) : "–"}</dd>
-    <dt>Calcul de route</dt><dd class="${r?.state === "ok" ? "ok" : r?.state === "erreur" ? "bad" : "warn"}">${r ? r.state + (r.compute_s ? " · " + Math.round(r.compute_s) + " s" : "") : "–"}</dd>
+    <dt>Météo</dt><dd class="${w?.stale ? "warn" : ""}">${w ? cycleS(w.cycle) + " · âge " + fr1(w.age_h) + " h" : "–"}</dd>
+    <dt>Calcul de route</dt><dd class="${r?.state === "ok" ? "" : r?.state === "erreur" ? "bad" : "warn"}">${r ? r.state + (r.compute_s ? " · " + Math.round(r.compute_s) + " s" : "") : "–"}</dd>
     <dt>Calculée le</dt><dd>${fmtT(R.computed_at)}</dd>
     <dt>Départ du calcul</dt><dd>${R.start_source}</dd>
-    ${R.game_switch ? `<dt>Météo du jeu</dt><dd>${cycleS(R.game_switch.before_cycle)} jusqu'à ${fmtT(R.game_switch.at)}, puis ${cycleS(R.gfs_cycle)}</dd>` : ""}`;
+    ${R.game_switch ? `<dt>Météo du jeu</dt><dd>${cycleS(R.game_switch.before_cycle)} jusqu'à ${fmtT(R.game_switch.at)}, puis ${cycleS(R.gfs_cycle)}</dd>` : ""}
+    ${x?.state === "pas de clé" ? `<dt>Explication</dt><dd>clé Claude absente</dd>` : ""}`;
   const beyond = R.beyond_forecast_from ? ` Au-delà du ${fmtT(R.beyond_forecast_from)}, la route utilise la dernière échéance disponible.` : "";
   $("#disclaimer").textContent = `Route estimée, pas une optimale garantie : GFS 0,25° interpolé, calcul par étapes de 15 min au début puis d'1 h, polaire ${R.boat} reconstruite et pénalités en partie supposées.${beyond}`;
 }
@@ -189,66 +244,75 @@ function until(ms) {
   return d ? `${d} j ${h} h` : h ? `${h} h ${pad(m % 60)}` : `${m} min`;
 }
 
-function renderPills() {
-  const w = state.status?.weather, r = state.status?.route, d = state.wx;
-  const pw = $("#pill-wx"), pr = $("#pill-rt"), age = wxAgeH(w);
-  if (d?.state === "téléchargement") { pw.className = "pill warn"; pw.textContent = `Météo ${d.done}/${d.total}`; }
-  else if (!w) { pw.className = "pill bad"; pw.textContent = "Pas de météo"; }
-  else { pw.className = `pill ${age > 9 ? "warn" : "ok"}`; pw.textContent = `Météo : il y a ${Math.round(age)} h`; }
-  if (!r) { pr.className = "pill"; pr.textContent = "Pas de route"; }
-  else { pr.className = `pill ${r.state === "ok" ? "ok" : r.state === "calcul" ? "warn" : "bad"}`;
-    pr.textContent = r.state === "calcul" ? "Calcul en cours…" : r.state === "ok" ? "Route à jour" : "Route : problème"; }
+// Pastille de l'en-tête : un seul état, le plus important.
+function renderStatus() {
+  const w = state.status?.weather, r = state.status?.route, d = state.wx, age = wxAgeH(w), el = $("#status");
+  let cls = "ok", txt;
+  if (r?.state === "calcul") { cls = "warn"; txt = "Calcul en cours…"; }
+  else if (d?.state === "téléchargement") { cls = "warn"; txt = `Météo ${d.done}/${d.total}`; }
+  else if (!w) { cls = "bad"; txt = "Pas de météo"; }
+  else if (r && r.state !== "ok") { cls = "bad"; txt = "Route : problème"; }
+  else { cls = age > 9 ? "warn" : "ok"; txt = `Météo d'il y a ${Math.round(age)} h`; }
+  el.className = `status ${cls}`;
+  el.querySelector("span").textContent = txt;
+  el.title = w ? `${cycleS(w.cycle)} · route ${r?.state || "?"}` : "";
 }
 
-// Carte « Maintenant » : où on en est, quoi faire, pourquoi la route a bougé — en phrases simples.
-function renderNow() {
-  const R = state.route, S = state.status, now = Date.now(), el = $("#now");
-  if (!R) { el.innerHTML = `<h3>Maintenant</h3><p>Pas encore de route. Le PC en calcule une dès que la météo est arrivée.</p>`; return; }
-  const start = ts(S?.race?.start_time || R.start_time), w = S?.weather, age = wxAgeH(w), C = R.comparison;
-  const p = [];
-  if (S?.route?.state === "calcul") p.push(`<p class="warn">Nouveau calcul en cours (environ 3 min)…</p>`);
+// « À faire » : où on en est et l'action à faire, une ligne chacune.
+function renderTodo() {
+  const R = state.route, S = state.status, now = Date.now(), el = $("#todo");
+  if (!R) { el.innerHTML = ""; return; }
+  const start = ts(S?.race?.start_time || R.start_time), age = wxAgeH(S?.weather);
+  const row = (kind, icon, title, text = "", btn = "") =>
+    `<div class="todo ${kind}">${ico(icon)}<div><p class="t">${title}</p>${text ? `<p>${text}</p>` : ""}${btn}</div></div>`;
+  const go = (ghost) => `<button class="btn${ghost ? " ghost" : ""}" data-go="pos">${ico("pin")}Envoyer ma position</button>`;
+  const rows = [];
+  if (S?.route?.state === "calcul") rows.push(row("busy", "sync", "Nouveau calcul en cours", "Environ 3 min."));
   const pend = pending();
-  if (pend) p.push((now / 1000 - pend.t > 1800)
-    ? `<p class="warn">${pend.what || "Position envoyée"} ${fmtT(new Date(pend.t * 1000).toISOString())}, toujours pas de nouvelle route après 30 min. Réessaie.</p>`
-    : `<p class="warn">${pend.what || "Position envoyée"} ${fmtT(new Date(pend.t * 1000).toISOString())} : nouvelle route en préparation (5 à 15 min).</p>`);
-  if (now < start) {
-    p.push(`<p class="lead">Départ dans <b>${until(start - now)}</b> · ${fmtT(new Date(start).toISOString())}</p>`);
-    p.push(`<p><b>Rien à faire pour l'instant.</b> La route se recalcule toute seule à chaque nouvelle météo (4 fois par jour).</p>`);
-    p.push(`<p class="note">Elle va encore beaucoup bouger tant que le départ est loin : c'est normal, la météo à une semaine est incertaine.</p>`);
-  } else if (!R.eta || now < ts(R.eta) + 6 * 3600e3) {
+  if (pend) {
+    const late = now / 1000 - pend.t > 1800;
+    rows.push(row(late ? "warn" : "busy", late ? "alert" : "sync", `${pend.what || "Position envoyée"} à ${hm(pend.t * 1000)}`,
+      late ? "Toujours pas de nouvelle route après 30 min. Réessaie." : "Nouvelle route dans 5 à 15 min, la page se met à jour toute seule."));
+  }
+  if (now < start) rows.push(row("calm", "clock", `Départ dans ${until(start - now)}`,
+    `${fmtT(new Date(start).toISOString())}. Rien à faire : la route se recalcule toute seule à chaque nouvelle météo, et bougera encore d'ici là.`));
+  else if (!R.eta || now < ts(R.eta) + 6 * 3600e3) {
     // Plus la dernière position est vieille, plus la route repose sur « le bateau a suivi la route ».
     const lp = R.last_position, lpAge = lp ? (now - ts(lp.time)) / 3600e3 : Infinity;
-    p.push(`<p class="lead"><b>Course en cours.</b></p>`);
-    p.push(!lp ? `<p class="warn"><b>À faire :</b> envoie ta position du jeu (onglet Météo). Sinon le routeur suppose que tu as suivi sa route.</p>`
-      : lpAge >= 6 ? `<p class="warn"><b>Ta dernière position date de ${until(now - ts(lp.time))} :</b> la route peut être fausse si tu t'es écarté. Envoie ta position (onglet Météo).</p>`
-      : lpAge >= 4 ? `<p>Dernière position envoyée il y a ${until(now - ts(lp.time))}. Pense à la renvoyer bientôt.</p>`
-      : `<p class="ok">Dernière position envoyée il y a ${until(now - ts(lp.time))}.</p>`);
-    const wp = R.waypoints.find((x) => ts(x.t) > now);
-    if (wp) p.push(`<p>Prochain ordre dans le jeu : <b>WP${pad(wp.n)}</b> à ${fmtT(wp.t).split(" ").pop()} (dans ${until(ts(wp.t) - now)}), ${orderS(wp)}, voile <b>${sailFr(wp.sail)}</b>.</p>`);
-  } else p.push(`<p class="lead"><b>Course terminée.</b></p>`);
-  if (state.ens) p.push(state.route === state.safe
-    ? `<p>Route affichée : <b>la plus sûre</b> sur ${state.ens.judges} scénarios météo.</p>`
-    : state.ens.recommended === "gfs" ? `<p>Route affichée : la route GFS, qui est aussi <b>la plus sûre</b> sur ${state.ens.judges} scénarios.</p>`
-    : `<p class="warn">Route affichée : GFS seule. La route conseillée par les scénarios est différente.</p>`);
-  if (age > 9) p.push(`<p class="warn">La météo date de ${Math.round(age)} h : le PC était sans doute en veille. Elle se remettra à jour toute seule.</p>`);
+    if (!pend) rows.push(!lp ? row("warn", "pin", "Envoie ta position", "Sinon le routeur suppose que tu as suivi sa route.", go())
+      : lpAge >= 6 ? row("warn", "pin", `Ta position date de ${until(now - ts(lp.time))}`, "La route peut être fausse si tu t'es écarté.", go())
+      : lpAge >= 4 ? row("calm", "pin", `Position envoyée il y a ${until(now - ts(lp.time))}`, "Pense à la renvoyer bientôt.", go(true))
+      : row("ok", "check", `Position envoyée il y a ${until(now - ts(lp.time))}`));
+  } else rows.push(row("ok", "flag", "Course terminée"));
+  if (age > 9) rows.push(row("warn", "alert", `Météo vieille de ${Math.round(age)} h`, "Le prochain calcul la remettra à jour tout seul."));
+  el.innerHTML = rows.join("");
+}
+
+// Lignes courtes sous la frise : quelle route est affichée, et ce qui a changé au dernier calcul.
+function renderNotes() {
+  const R = state.route, e = state.ens, C = R?.comparison;
+  $("#choice-cap").innerHTML = !R || !e ? ""
+    : state.route === state.safe ? `La plus sûre sur ${e.judges} versions de la météo.`
+    : e.recommended === "gfs" ? `Route GFS, qui est aussi la plus sûre sur ${e.judges} versions de la météo.`
+    : `<span class="warn">Une seule météo (GFS). La route conseillée est différente.</span>`;
+  let ch = "";
   if (C && C.eta_delta_h != null) {
     const d = C.eta_delta_h, same = Math.abs(d) < 0.5 && (C.mean_deviation_nm ?? 0) < 5;
     const dir = C.mean_lat_shift_deg > 0.3 ? ", plus au nord" : C.mean_lat_shift_deg < -0.3 ? ", plus au sud" : "";
-    p.push(`<p class="note">Dernière mise à jour ${fmtT(R.computed_at)} (${cycleS(R.gfs_cycle)}) : ` + (same ? "route quasi identique."
-      : `arrivée <b>${Math.abs(d).toFixed(1).replace(".", ",")} h ${d < 0 ? "plus tôt" : "plus tard"}</b>, route décalée de ${Math.round(C.mean_deviation_nm)} milles en moyenne${dir}.`) + `</p>`);
+    ch = `Mise à jour ${fmtT(R.computed_at)} : ` + (same ? "route quasi identique."
+      : `arrivée <b>${fr1(Math.abs(d))} h ${d < 0 ? "plus tôt" : "plus tard"}</b>, route décalée de ${Math.round(C.mean_deviation_nm)} milles en moyenne${dir}.`);
   }
+  $("#change").innerHTML = ch;
   const x = state.expl;
   if (x?.state === "ok" && x.text) {
-    // « Intitulé : texte » -> intitulé en gras sur sa propre ligne, texte dessous.
+    // « Intitulé : texte » -> intitulé sur sa propre ligne, texte dessous.
     const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const rows = x.text.split(/\n+/).filter((t) => t.trim()).map((t) => {
       const m = t.match(/^\s*([^:]{2,22})\s*:\s*(.+)$/);
       return m ? `<div class="why-row"><b>${esc(m[1])}</b><span>${esc(m[2])}</span></div>` : `<p>${esc(t)}</p>`;
     });
-    p.push(`<div class="why-box"><h3>Le point de l'équipier</h3>${rows.join("")}</div>`);
-  }
-  else if (x?.state === "pas de clé") p.push(`<p class="note">Explication en français : ajoute ta clé API Anthropic (voir le guide).</p>`);
-  el.innerHTML = `<h3>Maintenant</h3>${p.join("")}`;
+    $("#why").innerHTML = `<h2>Le point de l'équipier</h2>${rows.join("")}`;
+  } else $("#why").innerHTML = "";
 }
 
 // --- feuille de route -------------------------------------------------------------------------
@@ -261,23 +325,18 @@ function renderRoute() {
   for (const c of R.sail_changes) items.push({ t: ts(c.t), c });
   items.sort((a, b) => a.t - b.t);
   const firstFuture = items.findIndex((x) => x.t > now);
+  const when = (iso) => `<div class="when"><b>${hm(iso)}</b><span>${dtDay.format(new Date(iso))}</span></div>`;
   const html = items.filter((x, k) => !only || (x.t > now - 3600e3 && x.t < now + 48 * 3600e3) || (now < ts(R.start_time) && x.t < ts(R.start_time) + 48 * 3600e3) || k === firstFuture)
     .map(({ t, w, c }) => {
       const past = t < now ? " past" : "";
-      if (c) return `<li class="sailchg${past}"><div class="h"><span><span class="sw" style="background:${SAIL_COLORS[c.sail_to] || "#999"}"></span><b>Changer de voile : ${sailFr(c.sail_from)} → ${sailFr(c.sail_to)}</b></span><span class="t">${fmtT(c.t)}</span></div>
-        <div class="m"><span><b>+${c.gain_pct} %</b> de vitesse</span><span>vent ${c.tws} kt</span><span>${latS(c.lat)} ${lonS(c.lon)}</span></div></li>`;
+      if (c) return `<li class="sc${past}">${when(c.t)}<div class="body">${swatch(c.sail_to)}Voile : ${sailFr(c.sail_from)} → <b>${sailFr(c.sail_to)}</b>
+        <span class="note">· +${String(c.gain_pct).replace(".", ",")} % · vent ${c.tws} kt</span></div></li>`;
       const changed = prev.length && !prev.some(([a, b]) => hav(a, b, w.lat, w.lon) < 10);
-      const txt = `${latS(w.lat)} ${lonS(w.lon)}`;
-      return `<li class="${changed ? "changed" : ""}${past}">
-        <div class="h"><span class="n">WP${pad(w.n)}${changed ? '<span class="badge warn">modifié</span>' : ""}${w.beyond_forecast ? '<span class="badge warn">hors prévision</span>' : ""}</span>
-          <span class="t">${fmtT(w.t)}<span class="tz">${fmtZ(w.t)}</span></span></div>
-        <div class="act">${orderS(w)} · <span class="sw" style="background:${SAIL_COLORS[w.sail] || "#999"}"></span><b>${sailFr(w.sail)}</b></div>
-        ${orderWhy(w) ? `<div class="why">${orderWhy(w)}</div>` : ""}
-        <div class="c"><button class="coord" data-copy="${latS(w.lat)}" aria-label="Copier la latitude">${latS(w.lat)}</button>
-          <button class="coord" data-copy="${lonS(w.lon)}" aria-label="Copier la longitude">${lonS(w.lon)}</button>
-          <button class="copy" data-copy="${txt}" aria-label="Copier latitude et longitude">⧉</button></div>
-        <div class="m"><span>TWA <b>${twaS(w.twa)}</b></span><span>vent ${deg(w.twd)} ${w.tws.toFixed(0)} kt</span><span>${w.speed.toFixed(1)} kt prévus</span></div>
-        <div class="why">${w.reason}</div></li>`;
+      return `<li class="${past}">${when(w.t)}<div class="body">
+        <p class="act"><span class="n">WP${pad(w.n)}</span><span>${orderS(w)}</span><span class="sail">${swatch(w.sail)}${sailFr(w.sail)}</span>${changed ? '<span class="badge warn">modifié</span>' : ""}${w.beyond_forecast ? '<span class="badge warn">hors prévision</span>' : ""}</p>
+        ${coordsHtml(w, false)}
+        <p class="m"><span>TWA <b>${twaS(w.twa)}</b></span><span>vent <b>${deg(w.twd)} · ${w.tws.toFixed(0)} kt</b></span><span><b>${fr1(w.speed)} kt</b> prévus</span><span>${fmtZ(w.t)}</span></p>
+        <p class="why">${[w.reason, orderWhy(w)].filter(Boolean).join(" · ")}</p></div></li>`;
     });
   ol.innerHTML = html.join("") || `<li class="note">Aucun point dans les 48 prochaines heures.</li>`;
 }
@@ -315,6 +374,8 @@ function initMap() {
   $("#show-ens").onchange = drawRoute;
   $("#slider").oninput = (e) => { state.slider = +e.target.value; drawWind(); drawBoat(); };
   map.on("moveend", drawWind);
+  // Rotation du téléphone ou fenêtre redimensionnée : la carte doit reprendre sa taille.
+  let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { map.invalidateSize(); fitOnce(); }, 150); });
 }
 async function loadStatic() {
   const land = { color: "#5b7083", weight: 1, fillColor: "#1d2a38", fillOpacity: 1, interactive: false };
@@ -386,7 +447,7 @@ function drawWind() {
   const W = state.wind; if (!W) return;
   const fr = W.frames[state.slider]; if (!fr) return;
   const lead = Math.round((ts(fr.t) - ts(W.run)) / 3600e3);
-  $("#wx-time").textContent = `Vent ${fmtT(fr.t)} · ${cycleS(state.status?.weather?.cycle)} +${lead} h`;
+  $("#wx-time").innerHTML = `Vent du ${fmtT(fr.t)}<small>${cycleS(state.status?.weather?.cycle)} +${lead} h</small>`;
   if (!$("#show-wind").checked) return;
   const a = frameData(state.slider), n = W.nlat * W.nlon, b = map.getBounds().pad(0.1);
   const z = map.getZoom(), stride = z <= 3 ? 4 : z === 4 ? 2 : 1;
@@ -450,8 +511,8 @@ function pickRoute() {
   document.querySelectorAll(".choice button").forEach((b) => b.classList.toggle("on", b.dataset.c === (useSafe ? "safe" : "gfs")));
   document.querySelectorAll(".choice").forEach((el) => (el.hidden = !state.safe));
 }
-function confidence(e) {
-  const r = e.candidates.find((c) => c.id === e.recommended);
+// Fiabilité d'une route : largeur de la fourchette « 8 cas sur 10 » de ses arrivées.
+function confidence(r) {
   const h = (ts(r.p90_eta) - ts(r.p10_eta)) / 3600e3;
   return { h, label: h < 8 ? "élevée" : h < 20 ? "moyenne" : "faible", cls: h < 8 ? "ok" : h < 20 ? "warn" : "bad", r };
 }
@@ -462,11 +523,10 @@ function renderScenarios() {
   let h = `<h3>Scénarios météo</h3>`;
   if (busy) h += `<p class="warn">${st.message}…</p><div class="bar"><i style="width:${Math.round(100 * st.done / Math.max(st.total, 1))}%"></i></div>`;
   if (e) {
-    const c = confidence(e), r = c.r;
+    const r = e.candidates.find((x) => x.id === e.recommended), c = confidence(r);
     const same = e.recommended === "gfs";
-    h += `<p>${e.judges} versions de la météo testées (${cycleS(e.gefs_cycle).replace("GFS", "GEFS")}).</p>
-      <p>Arrivée la plus probable : <b>${fmtT(r.median_eta)}</b>. Dans 8 cas sur 10 : entre ${fmtT(r.p10_eta)} et ${fmtT(r.p90_eta)}.</p>
-      <p>Fiabilité de la prévision : <b class="${c.cls}">${c.label}</b> (écart de ${Math.round(c.h)} h entre les cas).</p>
+    h += `<p>${e.judges} versions de la météo testées (${cycleS(e.gefs_cycle).replace("GFS", "GEFS")}). Fiabilité
+      <b class="${c.cls}">${c.label}</b> : ${Math.round(c.h)} h d'écart entre les cas.</p>
       <p>${same ? "La route GFS est aussi la plus sûre : elle tient dans la plupart des scénarios."
         : `La route conseillée est plus sûre que la route GFS seule : <b>${Math.abs(e.gain_vs_gfs_h).toFixed(1).replace(".", ",")} h ${e.gain_vs_gfs_h >= 0 ? "gagnées" : "perdues"}</b> en moyenne sur les scénarios.`}</p>
       <p class="note">${same || r.beats_gfs == null ? "" : `Elle fait mieux que la route GFS dans ${r.beats_gfs} scénarios sur ${e.judges}. `}Méthode : chaque route est suivie ${e.commit_h} h dans chaque scénario, puis on suppose un recalcul. Mise à jour ${fmtT(e.computed_at)}.</p>`;
@@ -502,7 +562,7 @@ async function refresh() {
   if (!state.wind || (run && state.wind.run.slice(0, 13) !== run.slice(0, 13))) {
     try { state.wind = await getJSON("data/wind.json"); frameCache.clear(); setupSlider(); } catch { /* pas de vent */ }
   }
-  renderPills(); renderNow(); renderScenarios(); renderBord(); renderRoute(); renderMeteo();
+  renderStatus(); renderAll(); renderMeteo();
   if (map) { drawRoute(); drawWind(); drawBoat(); }
   if (state.route && !fillForm.done) { fillForm(); fillForm.done = true; }
 }
@@ -573,7 +633,7 @@ async function sendSigned(fields, btn, done) {
     store.set(`code-${boat.id}`, f.keep.checked ? f.code.value : "");
     store.set(`pending-${boat.id}`, JSON.stringify({ t, what: fields.action ? "Recalcul demandé" : "Position envoyée" }));
     msg.textContent = `${done} Nouvelle route dans 5 à 15 min : la page se met à jour toute seule.`;
-    renderNow();
+    renderTodo();
     return true;
   } catch (err) { msg.textContent = `Envoi impossible (${err.message}). Vérifie la connexion et réessaie.`; return false; }
   finally { btn.disabled = false; }
@@ -598,12 +658,22 @@ function checkPending() {
   if (p && R && ts(R.published_at || R.computed_at) / 1000 >= p.t) store.set(`pending-${state.boat}`, "");
 }
 
+function showTab(name) {
+  document.querySelectorAll(".tabs button").forEach((x) => {
+    x.classList.toggle("on", x.dataset.tab === name);
+    if (x.dataset.tab === name) x.setAttribute("aria-current", "page"); else x.removeAttribute("aria-current");
+  });
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.id === `tab-${name}`));
+  if (name === "carte") setTimeout(() => { map.invalidateSize(); fitOnce(); drawWind(); }, 50);
+}
+const renderAll = () => { renderTodo(); renderNotes(); renderScenarios(); renderBord(); renderRoute(); };
+
 function initUi() {
   state.fmt = store.get("fmt", "dms");
   state.choice = store.get("choice", "safe");
   document.querySelectorAll(".choice button").forEach((b) => (b.onclick = () => {
     state.choice = b.dataset.c; store.set("choice", state.choice); pickRoute();
-    renderNow(); renderBord(); renderRoute(); if (map) { drawRoute(); drawBoat(); }
+    renderAll(); if (map) { drawRoute(); drawBoat(); }
   }));
   const sel = $("#fmt");
   sel.value = state.fmt;
@@ -613,12 +683,11 @@ function initUi() {
   $("#relay-recalc").onclick = askRecalc;
   $("#alerts-copy").onclick = () => copyText($("#alerts-topic").textContent);
   $("#relay-form").oninput = relayPreview;
-  document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
-    document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b));
-    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.id === `tab-${b.dataset.tab}`));
-    if (b.dataset.tab === "carte") setTimeout(() => { map.invalidateSize(); fitOnce(); drawWind(); }, 50);
-  }));
-  document.body.addEventListener("click", (e) => { const c = e.target.closest("[data-copy]"); if (c) copyText(c.dataset.copy); });
+  document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
+  document.body.addEventListener("click", (e) => {
+    const c = e.target.closest("[data-copy]"); if (c) copyText(c.dataset.copy);
+    const g = e.target.closest("[data-go]"); if (g) showTab(g.dataset.go);
+  });
   $("#btn-recalc").onclick = async () => { try { const j = await post("/api/recalcul"); toast(j.accepted ? "Recalcul lancé" : "Un calcul est déjà en cours"); pollJob(); } catch (err) { toast(err.message); } };
   $("#pos-form").onsubmit = async (e) => {
     e.preventDefault();
