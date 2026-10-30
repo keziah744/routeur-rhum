@@ -1,4 +1,6 @@
 # Toutes les 5 min : une position envoyée depuis la page (ntfy.sh) ? -> route du bateau recalculée et publiée.
+# C'est aussi le réveil des autres calculs : les lancements programmés de GitHub ne partent pas sur ce dépôt,
+# une minuterie externe (cron-job.org) lance ce relais, qui lance la route (h:05) et les scénarios (h:35).
 name: Positions reçues (relais)
 
 on:
@@ -7,6 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: read
   pages: write
   id-token: write
@@ -19,6 +22,16 @@ jobs:
     outputs:
       new: ${{ steps.poll.outputs.new }}
     steps:
+      # Fenêtres de 10 min : un réveil manqué ou en retard est rattrapé au suivant ; un double lancement ne
+      # coûte qu'un calcul « rien de nouveau » d'une minute.
+      - name: Réveil de la route (h:05) et des scénarios (h:35)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          m=$((10#$(date -u +%M)))
+          if [ "$m" -ge 5 ] && [ "$m" -lt 15 ]; then gh workflow run route.yml --repo "$GITHUB_REPOSITORY" && echo "Route lancée."; fi
+          if [ "$m" -ge 35 ] && [ "$m" -lt 45 ]; then gh workflow run ensemble.yml --repo "$GITHUB_REPOSITORY" && echo "Scénarios lancés."; fi
+          true
       - uses: actions/checkout@v4
         with:
           sparse-checkout: config.toml
