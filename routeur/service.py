@@ -98,10 +98,10 @@ class Service:
     @property
     def mask(self) -> LandMask:
         if self._mask is None:
-            path = resolve("data/geo/mask.npz")
-            if not path.exists():
-                raise FileNotFoundError("masque absent : lancer « python -m routeur masque »")
-            self._mask = LandMask.load(path)
+            try:  # mask.npz entier (PC) ou en morceaux mask.npz.part* (dépôt publié)
+                self._mask = LandMask.load(resolve("data/geo/mask.npz"))
+            except FileNotFoundError as exc:
+                raise FileNotFoundError("masque absent : lancer « python -m routeur masque »") from exc
         return self._mask
 
     # --- état publié ---------------------------------------------------------------------------
