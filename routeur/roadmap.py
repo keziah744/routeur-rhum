@@ -234,9 +234,32 @@ def check_legs(wps: list[Waypoint], wind: WindField, polar: Polar) -> dict:
             "worst_legs": [{"from_wp": n, "extra_min": round(x / 60)} for x, n in worst[:3] if x > 60]}
 
 
+def order_advice(points, t0: float, t1: float, heading: float) -> dict:
+    """Ordre à donner dans le programmateur du jeu pour le segment [t0, t1[ : cap fixe ou TWA fixe.
+
+    On garde ce qui varie le moins le long de la route : si le vent tourne, la route suit un angle au vent
+    constant (TWA) plutôt qu'un cap. Un virement ou un empannage dans le segment impose le cap ; à 3° près, on
+    garde aussi le cap, plus simple à programmer.
+    """
+    seg = [p for p in points if t0 <= p.t < t1] or [min(points, key=lambda p: abs(p.t - t0))]
+    twas = np.array([p.twa for p in seg])
+    heads = np.array([p.heading for p in seg])
+    d_head = (heads - heads[0] + 180) % 360 - 180
+    spread_cap = float(d_head.max() - d_head.min())
+    spread_twa = float(twas.max() - twas.min())
+    same_tack = bool(np.all(twas > 0) or np.all(twas < 0))
+    if same_tack and spread_twa + 3 <= spread_cap:
+        return {"mode": "twa", "value": round(float(np.median(twas))), "spread_cap": round(spread_cap),
+                "spread_twa": round(spread_twa)}
+    return {"mode": "cap", "value": round(heading) % 360, "spread_cap": round(spread_cap),
+            "spread_twa": round(spread_twa)}
+
+
 def route_document(res: RouteResult, roadmap: dict, meta: dict, check: dict | None) -> dict:
     """Document JSON publié pour l'interface et l'export."""
     pts = res.points
+    wps = roadmap["waypoints"]
+    ends = [w.t for w in wps[1:]] + [(res.eta or pts[-1].t) + 1]
     return {
         "format": "routeur-rhum/route@1",
         "computed_at": iso(datetime.now(timezone.utc).timestamp()),
@@ -249,7 +272,8 @@ def route_document(res: RouteResult, roadmap: dict, meta: dict, check: dict | No
         "check_waypoints": check,
         "beyond_forecast_from": next((iso(p.t) for p in pts if p.beyond_forecast), None),
         "stats": res.stats,
-        "waypoints": [{**asdict(w), "t": iso(w.t)} for w in roadmap["waypoints"]],
+        "waypoints": [{**asdict(w), "t": iso(w.t), "order": order_advice(pts, w.t, t1, w.heading)}
+                      for w, t1 in zip(wps, ends)],
         "sail_changes": [{**asdict(c), "t": iso(c.t)} for c in roadmap["sail_changes"]],
         "track": [[round(p.lat, 4), round(p.lon, 4), iso(p.t), p.sail, round(p.tws, 1), round(p.twa, 1),
                    round(p.speed, 1)] for p in pts],
@@ -288,10 +312,12 @@ def compare(prev: dict | None, cur: dict) -> dict | None:
 def to_csv(doc: dict) -> str:
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";")
-    w.writerow(["n", "heure_utc", "latitude", "longitude", "cap", "twa", "tws_kt", "twd", "voile", "vitesse_kt", "motif"])
+    w.writerow(["n", "heure_utc", "latitude", "longitude", "cap", "twa", "tws_kt", "twd", "voile", "vitesse_kt",
+                "ordre", "valeur_ordre", "motif"])
     for p in doc["waypoints"]:
+        o = p.get("order") or {}
         w.writerow([p["n"], p["t"], p["lat"], p["lon"], p["heading"], p["twa"], p["tws"], p["twd"], p["sail"],
-                    p["speed"], p["reason"]])
+                    p["speed"], o.get("mode", ""), o.get("value", ""), p["reason"]])
     return buf.getvalue()
 
 

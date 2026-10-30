@@ -41,6 +41,10 @@ const lonS = (v) => coord(v, "E", "W", 3);
 const deg = (v) => `${Math.round(((v % 360) + 360) % 360).toString().padStart(3, "0")}°`;
 const twaS = (v) => `${v > 0 ? "+" : ""}${Math.round(v)}°`;
 const hoursS = (h) => `${Math.floor(h / 24)} j ${pad(Math.round(h % 24))} h`;
+// Ordre à programmer dans le jeu : TWA fixe si le vent tourne le long du segment, sinon cap fixe.
+const orderS = (w) => (w.order?.mode === "twa" ? `TWA <b>${twaS(w.order.value)}</b>` : `Cap <b>${deg(w.heading)}</b>`);
+const orderWhy = (w) => (w.order?.mode === "twa" ? `Le vent tourne de ${w.order.spread_cap}° sur ce segment : programme une TWA fixe.`
+  : w.order?.spread_twa >= 10 ? `Cap fixe : l'angle au vent varie de ${w.order.spread_twa}° sur ce segment.` : "");
 
 function parseCoord(txt, isLat) {
   // Accepte « 46.2083 », « -23.668 », « 46°12,5 N », « 46 12.5 N », « 46°12'30" N »
@@ -154,7 +158,7 @@ function renderBord() {
   const nextWp = R.waypoints.find((w) => ts(w.t) > now) || R.waypoints[0];
   $("#next-wp").innerHTML = nextWp ? `<h3>Prochain waypoint · WP${pad(nextWp.n)}</h3>
     <div class="line"><span class="big">${latS(nextWp.lat)}  ${lonS(nextWp.lon)}</span><button class="copy" data-copy="${latS(nextWp.lat)} ${lonS(nextWp.lon)}">Copier</button></div>
-    <div class="line note"><span>${fmtT(nextWp.t)} · ${fmtZ(nextWp.t)}</span><span>cap ${deg(nextWp.heading)} · ${sailFr(nextWp.sail)}</span></div>
+    <div class="line note"><span>${fmtT(nextWp.t)}${ts(nextWp.t) > now ? ` · dans ${until(ts(nextWp.t) - now)}` : ""}</span><span>${orderS(nextWp)} · ${sailFr(nextWp.sail)}</span></div>
     <div class="note">${nextWp.reason}</div>` : "";
   const nextSail = R.sail_changes.find((c) => ts(c.t) > now);
   $("#next-sail").innerHTML = nextSail ? `<h3>Prochain changement de voile</h3>
@@ -219,7 +223,7 @@ function renderNow() {
       : lpAge >= 4 ? `<p>Dernière position envoyée il y a ${until(now - ts(lp.time))}. Pense à la renvoyer bientôt.</p>`
       : `<p class="ok">Dernière position envoyée il y a ${until(now - ts(lp.time))}.</p>`);
     const wp = R.waypoints.find((x) => ts(x.t) > now);
-    if (wp) p.push(`<p>Prochain ordre dans le jeu : <b>WP${pad(wp.n)}</b> vers ${fmtT(wp.t).split(" ").pop()}, cap <b>${deg(wp.heading)}</b>, voile <b>${sailFr(wp.sail)}</b>.</p>`);
+    if (wp) p.push(`<p>Prochain ordre dans le jeu : <b>WP${pad(wp.n)}</b> à ${fmtT(wp.t).split(" ").pop()} (dans ${until(ts(wp.t) - now)}), ${orderS(wp)}, voile <b>${sailFr(wp.sail)}</b>.</p>`);
   } else p.push(`<p class="lead"><b>Course terminée.</b></p>`);
   if (state.ens) p.push(state.route === state.safe
     ? `<p>Route affichée : <b>la plus sûre</b> sur ${state.ens.judges} scénarios météo.</p>`
@@ -266,7 +270,8 @@ function renderRoute() {
       return `<li class="${changed ? "changed" : ""}${past}">
         <div class="h"><span class="n">WP${pad(w.n)}${changed ? '<span class="badge warn">modifié</span>' : ""}${w.beyond_forecast ? '<span class="badge warn">hors prévision</span>' : ""}</span>
           <span class="t">${fmtT(w.t)}<span class="tz">${fmtZ(w.t)}</span></span></div>
-        <div class="act">Cap <b>${deg(w.heading)}</b> · <span class="sw" style="background:${SAIL_COLORS[w.sail] || "#999"}"></span><b>${sailFr(w.sail)}</b></div>
+        <div class="act">${orderS(w)} · <span class="sw" style="background:${SAIL_COLORS[w.sail] || "#999"}"></span><b>${sailFr(w.sail)}</b></div>
+        ${orderWhy(w) ? `<div class="why">${orderWhy(w)}</div>` : ""}
         <div class="c"><button class="coord" data-copy="${latS(w.lat)}" aria-label="Copier la latitude">${latS(w.lat)}</button>
           <button class="coord" data-copy="${lonS(w.lon)}" aria-label="Copier la longitude">${lonS(w.lon)}</button>
           <button class="copy" data-copy="${txt}" aria-label="Copier latitude et longitude">⧉</button></div>
