@@ -50,6 +50,8 @@ const ICONS = {
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
   flag: '<path d="M5.5 21V4M5.5 4.5h11l-2.2 4 2.2 4h-11"/>',
   sync: '<path d="M19.5 11A7.5 7.5 0 0 0 6 6.6L4.5 8M4.5 13A7.5 7.5 0 0 0 18 17.4l1.5-1.4"/><path d="M4.5 4v4h4M19.5 20v-4h-4"/>',
+  lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
+  unlock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"/>',
   sail: '<path d="M12 3.5v14"/><path d="M12 4.5c3.8 2.8 6 7.4 6 12.5h-6"/><path d="M10 7.5c-2.6 2.6-4 5.8-4 9.5h4"/><path d="M4 20.5h16"/>',
 };
 const ico = (k) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>`;
@@ -81,6 +83,9 @@ const twaS = (v) => {
 };
 const hoursS = (h) => `${Math.floor(h / 24)} j ${pad(Math.round(h % 24))} h`;
 // Ordre à programmer dans le jeu : TWA fixe si le vent tourne le long du segment, sinon cap fixe.
+// Dans le jeu : cadenas fermé = TWA verrouillée (le bateau suit le vent), cadenas ouvert = cap fixe.
+const lockS = (w) => (w.order?.mode === "twa" ? `<span class="lock on">${ico("lock")}cadenas fermé</span>`
+  : `<span class="lock">${ico("unlock")}cadenas ouvert</span>`);
 const orderS = (w) => (w.order?.mode === "twa" ? `TWA <b>${twaS(w.order.value)}</b>` : `Cap <b>${deg(w.heading)}</b>`);
 const orderTxt = (w) => (w.order?.mode === "twa" ? `TWA ${twaS(w.order.value)}` : `Cap ${deg(w.heading)}`);
 const orderWhy = (w) => (w.order?.mode === "twa" ? `Le vent tourne de ${w.order.spread_cap}° sur ce segment : programme une TWA fixe.`
@@ -228,7 +233,7 @@ function renderBord() {
   const wp = R.waypoints.find((w) => ts(w.t) > now);
   $("#next-wp").innerHTML = wp ? `<h2>${wp.n === 0 ? "Premier ordre, au départ" : "Prochain ordre"} <span class="tag">WP${pad(wp.n)}</span></h2>
     <p class="when">${ico("clock")}${fmtT(wp.t)} · dans ${until(ts(wp.t) - now)}</p>
-    <p class="order-main"><span>${orderS(wp)}</span><span class="sail">${swatch(wp.sail)}${sailFr(wp.sail)}</span></p>
+    <p class="order-main"><span>${orderS(wp)}</span>${lockS(wp)}<span class="sail">${swatch(wp.sail)}${sailFr(wp.sail)}</span></p>
     ${coordsHtml(wp)}
     <p class="why-line">${[wp.reason, orderWhy(wp)].filter(Boolean).join(" · ")}</p>` : "";
   const sc = R.sail_changes.find((c) => ts(c.t) > now);
@@ -361,7 +366,7 @@ function renderRoute() {
         <span class="note">· +${String(c.gain_pct).replace(".", ",")} % · vent ${c.tws} kt</span></div></li>`;
       const changed = prev.length && !prev.some(([a, b]) => hav(a, b, w.lat, w.lon) < 10);
       return `<li class="${past}">${when(w.t)}<div class="body">
-        <p class="act"><span class="n">WP${pad(w.n)}</span><span>${orderS(w)}</span><span class="sail">${swatch(w.sail)}${sailFr(w.sail)}</span>${changed ? '<span class="badge warn">modifié</span>' : ""}${w.beyond_forecast ? '<span class="badge warn">hors prévision</span>' : ""}</p>
+        <p class="act"><span class="n">WP${pad(w.n)}</span><span>${orderS(w)}</span>${lockS(w)}<span class="sail">${swatch(w.sail)}${sailFr(w.sail)}</span>${changed ? '<span class="badge warn">modifié</span>' : ""}${w.beyond_forecast ? '<span class="badge warn">hors prévision</span>' : ""}</p>
         ${coordsHtml(w, false)}
         <p class="m"><span>TWA <b>${twaS(w.twa)}</b></span><span>vent <b>${deg(w.twd)} · ${w.tws.toFixed(0)} kt</b></span><span><b>${fr1(w.speed)} kt</b> prévus</span><span>${fmtZ(w.t)}</span></p>
         <p class="why">${[w.reason, orderWhy(w)].filter(Boolean).join(" · ")}</p></div></li>`;
