@@ -274,8 +274,14 @@ input[type=range] { width: 100%; margin: 0; accent-color: var(--acc); height: 28
 .legend i { width: 12px; height: 3px; border-radius: 2px; }
 .leaflet-container { font: inherit; }
 .leaflet-bar a { background: var(--panel) !important; color: var(--ink) !important; border-color: var(--line) !important; }
-.leaflet-bar a.locate { display: grid; place-items: center; }
-.leaflet-bar a.locate .ico { width: 18px; height: 18px; }
+.leaflet-bar a.tool { display: grid; place-items: center; }
+.leaflet-bar a.tool .ico { width: 18px; height: 18px; }
+.leaflet-bar a.tool.on { color: var(--bg) !important; background: #f2b84b !important; }
+.leaflet-container.measuring { cursor: crosshair; }
+.grid-lab { font: 10.5px var(--mono); color: var(--mute); white-space: nowrap; pointer-events: none; text-shadow: 0 0 3px #0d1520; }
+.grid-lab span { display: block; }
+.grid-lab.lat span { transform: translate(4px, -100%); }
+.grid-lab.lon span { transform: translate(4px, 4px); }
 .leaflet-control-attribution { background: color-mix(in srgb, var(--bg) 80%, transparent) !important; color: var(--mute) !important; }
 .leaflet-control-attribution a { color: var(--ink-2) !important; }
 .wp-label { font-family: var(--mono); font-size: 11px; color: var(--ink); background: rgba(10,16,23,.85); border: 1px solid var(--line); border-radius: 4px; padding: 0 3px; white-space: nowrap; }

@@ -54,6 +54,7 @@ const ICONS = {
   unlock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"/>',
   sail: '<path d="M12 3.5v14"/><path d="M12 4.5c3.8 2.8 6 7.4 6 12.5h-6"/><path d="M10 7.5c-2.6 2.6-4 5.8-4 9.5h4"/><path d="M4 20.5h16"/>',
   locate: '<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>',
+  ruler: '<path d="M3.5 16.5L16.5 3.5l4 4-13 13z"/><path d="M7.5 12.5l2 2M10.5 9.5l1.5 1.5M13.5 6.5l2 2"/>',
 };
 const ico = (k) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>`;
 const swatch = (s) => `<i class="sw" style="background:${SAIL_COLORS[s] || "#999"}"></i>`;
@@ -397,27 +398,39 @@ function renderMeteo() {
 }
 
 // --- carte ------------------------------------------------------------------------------------
-let map, layers = {};
+let map, layers = {}, gridRenderer;
+// Couleurs du vent (flèches, fond coloré et légende), par force en nœuds.
+const WIND_BANDS = [[8, "#4b6c8a"], [14, "#4cc3d9"], [20, "#5fcf80"], [26, "#f2b84b"], [34, "#ef7b5a"], [Infinity, "#ef6461"]];
+const windBand = (kt) => WIND_BANDS.findIndex(([max]) => kt < max);
 function initMap() {
   map = L.map("map", { preferCanvas: true, zoomControl: false, zoomSnap: 0.25, worldCopyJump: false }).setView([33, -32], 3);
   L.control.zoom({ position: "topright" }).addTo(map);
-  // Sous le zoom : recentre la carte sur le bateau (position estimée maintenant).
-  const Locate = L.Control.extend({ onAdd() {
-    const bar = L.DomUtil.create("div", "leaflet-bar"), a = L.DomUtil.create("a", "locate", bar);
-    a.href = "#"; a.title = "Centrer sur le bateau"; a.setAttribute("role", "button");
-    a.setAttribute("aria-label", "Centrer sur le bateau"); a.innerHTML = ico("locate");
+  // Sous le zoom : recentrer sur le bateau (position estimée maintenant) et règle cap/distance.
+  const Tools = L.Control.extend({ onAdd() {
+    const bar = L.DomUtil.create("div", "leaflet-bar");
+    const btn = (cls, label, icon, fn) => {
+      const a = L.DomUtil.create("a", `tool ${cls}`, bar);
+      a.href = "#"; a.title = label; a.setAttribute("role", "button"); a.setAttribute("aria-label", label);
+      a.innerHTML = ico(icon);
+      L.DomEvent.on(a, "click", (e) => { L.DomEvent.preventDefault(e); fn(a); });
+    };
+    btn("locate", "Centrer sur le bateau", "locate", centerBoat);
+    btn("ruler", "Règle : touche deux points pour le cap et la distance", "ruler", toggleRuler);
     L.DomEvent.disableClickPropagation(bar);
-    L.DomEvent.on(a, "click", (e) => { L.DomEvent.preventDefault(e); centerBoat(); });
     return bar;
   } });
-  new Locate({ position: "topright" }).addTo(map);
+  new Tools({ position: "topright" }).addTo(map);
   // Pas de fond de carte tiers : on affiche les côtes GSHHG, celles qu'utilise le routeur.
   map.attributionControl.addAttribution("Côtes GSHHG 2.3.7 · vent NOAA GFS");
-  for (const k of ["coast", "zones", "gates", "ens", "prev", "iso", "route", "wps", "wind", "boat"]) layers[k] = L.layerGroup().addTo(map);
+  // Sous les tracés : fond coloré du vent, puis grille (les terres opaques passent par-dessus).
+  map.createPane("fill").style.zIndex = 350;
+  map.createPane("grid").style.zIndex = 390;
+  gridRenderer = L.canvas({ pane: "grid" });
+  for (const k of ["grid", "coast", "zones", "gates", "ens", "prev", "iso", "route", "wps", "wind", "boat", "ruler"]) layers[k] = L.layerGroup().addTo(map);
   $("#show-wind").onchange = drawWind; $("#show-iso").onchange = drawRoute; $("#show-prev").onchange = drawRoute;
-  $("#show-ens").onchange = drawRoute;
+  $("#show-ens").onchange = drawRoute; $("#show-fill").onchange = drawFill; $("#show-grid").onchange = drawGrid;
   $("#slider").oninput = (e) => { state.slider = +e.target.value; drawWind(); drawBoat(); };
-  map.on("moveend", drawWind);
+  map.on("moveend", drawWind); map.on("moveend", drawGrid); map.on("click", rulerClick);
   // Rotation du téléphone ou fenêtre redimensionnée : la carte doit reprendre sa taille.
   let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { map.invalidateSize(); fitOnce(); }, 150); });
 }
@@ -488,6 +501,7 @@ function setupSlider() {
 }
 function drawWind() {
   layers.wind.clearLayers();
+  drawFill();
   const W = state.wind; if (!W) return;
   const fr = W.frames[state.slider]; if (!fr) return;
   const lead = Math.round((ts(fr.t) - ts(W.run)) / 3600e3);
@@ -506,9 +520,86 @@ function drawWind() {
     const side = 0.35 * len;
     const l1 = [tip[0] - Math.cos(ang - 0.5) * side, tip[1] - Math.sin(ang - 0.5) * side / Math.cos(lat * Math.PI / 180)];
     const l2 = [tip[0] - Math.cos(ang + 0.5) * side, tip[1] - Math.sin(ang + 0.5) * side / Math.cos(lat * Math.PI / 180)];
-    const col = kt < 8 ? "#4b6c8a" : kt < 14 ? "#4cc3d9" : kt < 20 ? "#5fcf80" : kt < 26 ? "#f2b84b" : kt < 34 ? "#ef7b5a" : "#ef6461";
+    const col = WIND_BANDS[windBand(kt)][1];
     L.polyline([tail, tip, l1, tip, l2], { color: col, weight: 1.2, opacity: 0.85, interactive: false }).addTo(layers.wind);
   }
+}
+// Fond coloré par force du vent : on voit d'un coup les zones sans vent et les couloirs de vent fort.
+// L'image est rééchantillonnée en Mercator (comme la carte) pour tomber juste sous les flèches.
+const fill = { layer: null, w: null, k: -1 };
+function drawFill() {
+  const W = state.wind, on = W && $("#show-fill").checked && W.frames[state.slider];
+  if (on && fill.layer && fill.w === W && fill.k === state.slider) return;
+  if (fill.layer) { fill.layer.remove(); fill.layer = null; }
+  if (!on) return;
+  const a = frameData(state.slider), n = W.nlat * W.nlon, sp = new Float32Array(n);
+  for (let k = 0; k < n; k++) sp[k] = Math.hypot(a[k], a[n + k]) * W.scale_ms / 0.514444;
+  const lat1 = W.lat0 + (W.nlat - 1) * W.step, lon1 = W.lon0 + (W.nlon - 1) * W.step;
+  const merc = (lat) => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)), y0 = merc(W.lat0), y1 = merc(lat1);
+  const w = W.nlon * 4, h = W.nlat * 6, cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const cx = cv.getContext("2d"), img = cx.createImageData(w, h);
+  const rgb = WIND_BANDS.map(([, c]) => [1, 3, 5].map((x) => parseInt(c.slice(x, x + 2), 16)));
+  for (let py = 0; py < h; py++) {
+    const lat = Math.atan(Math.sinh(y1 - (py + 0.5) / h * (y1 - y0))) * 180 / Math.PI;
+    const fj = Math.min(Math.max((lat - W.lat0) / W.step, 0), W.nlat - 1.001), j = Math.floor(fj), dj = fj - j;
+    for (let px = 0; px < w; px++) {
+      const fi = Math.min((px + 0.5) / w * (W.nlon - 1), W.nlon - 1.001), i = Math.floor(fi), di = fi - i, k = j * W.nlon + i;
+      const s = (sp[k] * (1 - di) + sp[k + 1] * di) * (1 - dj) + (sp[k + W.nlon] * (1 - di) + sp[k + W.nlon + 1] * di) * dj;
+      const c = rgb[windBand(s)], o = (py * w + px) * 4;
+      img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 80;
+    }
+  }
+  cx.putImageData(img, 0, 0);
+  fill.layer = L.imageOverlay(cv.toDataURL(), [[W.lat0, W.lon0], [lat1, lon1]], { pane: "fill", interactive: false }).addTo(map);
+  fill.w = W; fill.k = state.slider;
+}
+// Grille lat/lon, plus fine quand on zoome, valeurs au bord : pour retrouver une position du jeu sur la carte.
+const gridS = (v, pos, neg) => {
+  const tm = Math.round(Math.abs(v) * 60), m = tm % 60;
+  return `${Math.floor(tm / 60)}°${m ? `${pad(m)}'` : ""} ${v >= 0 ? pos : neg}`;
+};
+function drawGrid() {
+  layers.grid.clearLayers();
+  if (!$("#show-grid").checked) return;
+  const z = map.getZoom(), st = z < 4 ? 10 : z < 5 ? 5 : z < 6 ? 2 : z < 7.5 ? 1 : z < 9 ? 0.5 : 1 / 6;
+  const b = map.getBounds(), s = Math.max(b.getSouth(), -85), nn = Math.min(b.getNorth(), 85), we = b.getWest(), ea = b.getEast();
+  const line = { renderer: gridRenderer, color: "#8fa0b1", weight: 0.6, opacity: 0.4, interactive: false };
+  const lab = (txt, ll, cls) => L.marker(ll, { interactive: false, keyboard: false,
+    icon: L.divIcon({ className: `grid-lab ${cls}`, html: `<span>${txt}</span>`, iconSize: null }) }).addTo(layers.grid);
+  for (let k = Math.ceil(s / st); k * st <= nn; k++) {
+    const la = k * st;
+    L.polyline([[la, we], [la, ea]], line).addTo(layers.grid); lab(gridS(la, "N", "S"), [la, we], "lat");
+  }
+  for (let k = Math.ceil(we / st); k * st <= ea; k++) {
+    const lo = k * st;
+    L.polyline([[s, lo], [nn, lo]], line).addTo(layers.grid); lab(gridS(lo, "E", "W"), [nn, lo], "lon");
+  }
+}
+// Règle : deux touches sur la carte donnent le cap et la distance en loxodromie, comme un cap fixe dans le jeu.
+const ruler = { on: false, pts: [] };
+function rhumb(a, b) {
+  const r = Math.PI / 180, p1 = a.lat * r, p2 = b.lat * r, dl = (b.lng - a.lng) * r;
+  const dpsi = Math.log(Math.tan(Math.PI / 4 + p2 / 2) / Math.tan(Math.PI / 4 + p1 / 2));
+  const q = Math.abs(dpsi) > 1e-12 ? (p2 - p1) / dpsi : Math.cos(p1);
+  return { cap: Math.atan2(dl, dpsi) / r, nm: Math.hypot(p2 - p1, q * dl) * 3440.065 };
+}
+function toggleRuler(btn) {
+  ruler.on = !ruler.on; ruler.pts = []; layers.ruler.clearLayers();
+  btn.classList.toggle("on", ruler.on);
+  map.getContainer().classList.toggle("measuring", ruler.on);
+}
+function rulerClick(e) {
+  if (!ruler.on) return;
+  if (ruler.pts.length === 2) { ruler.pts = []; layers.ruler.clearLayers(); }
+  ruler.pts.push(e.latlng);
+  const [a, b] = ruler.pts, dot = (ll) => L.circleMarker(ll, { radius: 4, color: "#fff", weight: 2, fillColor: "#f2b84b", fillOpacity: 1 });
+  if (!b) { dot(a).bindTooltip("Touche l'arrivée", { className: "wp-tip", permanent: true, direction: "top" }).addTo(layers.ruler); return; }
+  layers.ruler.clearLayers();
+  const { cap, nm } = rhumb(a, b);
+  L.polyline([a, b], { color: "#f2b84b", weight: 2, dashArray: "6 5", interactive: false }).addTo(layers.ruler);
+  dot(a).addTo(layers.ruler);
+  dot(b).bindTooltip(`cap ${deg(cap)} · ${nm.toFixed(1).replace(".", ",")} milles`,
+    { className: "wp-tip", permanent: true, direction: "top" }).addTo(layers.ruler);
 }
 function drawBoat() {
   layers.boat.clearLayers();
@@ -628,7 +719,7 @@ async function refresh() {
     try { state.wind = await getJSON("data/wind.json"); frameCache.clear(); setupSlider(); } catch { /* pas de vent */ }
   }
   renderStatus(); renderAll(); renderMeteo();
-  if (map) { drawRoute(); drawWind(); drawBoat(); }
+  if (map) { drawRoute(); drawWind(); drawBoat(); drawGrid(); }
   if (state.route && !fillForm.done) { fillForm(); fillForm.done = true; } else nextGate();
 }
 
@@ -822,7 +913,7 @@ function showTab(name) {
     if (x.dataset.tab === name) x.setAttribute("aria-current", "page"); else x.removeAttribute("aria-current");
   });
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.id === `tab-${name}`));
-  if (name === "carte") setTimeout(() => { map.invalidateSize(); fitOnce(); drawWind(); }, 50);
+  if (name === "carte") setTimeout(() => { map.invalidateSize(); fitOnce(); drawWind(); drawGrid(); }, 50);
 }
 const renderAll = () => { renderTodo(); renderNotes(); renderScenarios(); renderBord(); renderRoute(); renderProg(); };
 
