@@ -53,6 +53,7 @@ const ICONS = {
   lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
   unlock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"/>',
   sail: '<path d="M12 3.5v14"/><path d="M12 4.5c3.8 2.8 6 7.4 6 12.5h-6"/><path d="M10 7.5c-2.6 2.6-4 5.8-4 9.5h4"/><path d="M4 20.5h16"/>',
+  locate: '<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>',
 };
 const ico = (k) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k]}</svg>`;
 const swatch = (s) => `<i class="sw" style="background:${SAIL_COLORS[s] || "#999"}"></i>`;
@@ -400,6 +401,16 @@ let map, layers = {};
 function initMap() {
   map = L.map("map", { preferCanvas: true, zoomControl: false, zoomSnap: 0.25, worldCopyJump: false }).setView([33, -32], 3);
   L.control.zoom({ position: "topright" }).addTo(map);
+  // Sous le zoom : recentre la carte sur le bateau (position estimée maintenant).
+  const Locate = L.Control.extend({ onAdd() {
+    const bar = L.DomUtil.create("div", "leaflet-bar"), a = L.DomUtil.create("a", "locate", bar);
+    a.href = "#"; a.title = "Centrer sur le bateau"; a.setAttribute("role", "button");
+    a.setAttribute("aria-label", "Centrer sur le bateau"); a.innerHTML = ico("locate");
+    L.DomEvent.disableClickPropagation(bar);
+    L.DomEvent.on(a, "click", (e) => { L.DomEvent.preventDefault(e); centerBoat(); });
+    return bar;
+  } });
+  new Locate({ position: "topright" }).addTo(map);
   // Pas de fond de carte tiers : on affiche les côtes GSHHG, celles qu'utilise le routeur.
   map.attributionControl.addAttribution("Côtes GSHHG 2.3.7 · vent NOAA GFS");
   for (const k of ["coast", "zones", "gates", "ens", "prev", "iso", "route", "wps", "wind", "boat"]) layers[k] = L.layerGroup().addTo(map);
@@ -501,10 +512,19 @@ function drawWind() {
 }
 function drawBoat() {
   layers.boat.clearLayers();
-  const W = state.wind, fr = W?.frames[state.slider]; if (!fr || !state.route) return;
+  if (!state.route) return;
+  // Anneau : le bateau maintenant (la route part de la dernière position envoyée) ; point plein : à l'heure du curseur.
+  const now = trackAt(Date.now());
+  if (now) L.circleMarker([now.lat, now.lon], { radius: 10, color: "#4cc3d9", weight: 2, fill: false })
+    .bindTooltip("Bateau maintenant (estimé)", { className: "wp-tip" }).addTo(layers.boat);
+  const fr = state.wind?.frames[state.slider]; if (!fr) return;
   const at = trackAt(ts(fr.t)); if (!at) return;
   L.circleMarker([at.lat, at.lon], { radius: 7, color: "#fff", weight: 2, fillColor: "#4cc3d9", fillOpacity: 1 })
     .bindTooltip(`Bateau prévu ${fmtT(fr.t)}`, { className: "wp-tip" }).addTo(layers.boat);
+}
+function centerBoat() {
+  const at = trackAt(Date.now()); if (!at) return;
+  map.setView([at.lat, at.lon], Math.max(map.getZoom(), 7));
 }
 
 // --- actions (serveur local seulement) --------------------------------------------------------
