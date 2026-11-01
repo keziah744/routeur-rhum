@@ -38,6 +38,9 @@ mask_resolution = 0.01
 fine_resolution = 0.002
 # Marge de sécurité autour des terres (milles nautiques).
 safety_margin_nm = 0.5
+# Marge autour des zones interdites (milles). 01/11 : sans marge, la route frôlait le parc éolien de Saint-Brieuc
+# (0,2 mille) et une petite erreur de position suffisait pour entrer dedans. Guadeloupe : 0 (tuile du parcours).
+zone_margin_nm = 0.5
 
 [course]
 file = "data/course/route-du-rhum-2026.json"

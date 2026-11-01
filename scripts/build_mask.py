@@ -22,7 +22,8 @@ bbox = {k: cfg["gfs"][k] for k in ("lat_min", "lat_max", "lon_min", "lon_max")}
 gshhg = resolve("data/geo/sources/gshhg-bin-2.3.7.zip")
 t = time.time()
 mask = LandMask.build(gshhg, resolve(course.forbidden_geojson), bbox, cfg["geo"]["mask_resolution"],
-                      cfg["geo"]["safety_margin_nm"], course.fine_tiles, cfg["geo"]["fine_resolution"])
+                      cfg["geo"]["safety_margin_nm"], course.fine_tiles, cfg["geo"]["fine_resolution"],
+                      cfg["geo"].get("zone_margin_nm", 0.0))
 out = resolve("data/geo/mask.npz")
 mask.save(out)
 LandMask.split(out)  # morceaux versionnés dans le dépôt (voir LandMask.load)

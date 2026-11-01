@@ -171,7 +171,7 @@ class LandMask:
 
     @classmethod
     def build(cls, gshhg_zip: Path, forbidden_geojson: Path | None, bbox: dict, res: float,
-              margin_nm: float, fine_tiles: list[dict], fine_res: float) -> "LandMask":
+              margin_nm: float, fine_tiles: list[dict], fine_res: float, zone_margin_nm: float = 0.0) -> "LandMask":
         coarse_polys = read_gshhs(gshhg_zip, "gshhs_f.b", bbox)
         forbidden = read_forbidden(forbidden_geojson) if forbidden_geojson else []
         zone_polys = [p for _, p in forbidden]
@@ -180,11 +180,13 @@ class LandMask:
         for ft in fine_tiles:
             land = rasterize(coarse_polys, ft["lat_min"], ft["lon_min"], ft["lat_max"], ft["lon_max"], fine_res)
             m = dilate(land, ft["lat_min"], fine_res, ft.get("margin_nm", margin_nm))
-            m |= rasterize(zone_polys, ft["lat_min"], ft["lon_min"], ft["lat_max"], ft["lon_max"], fine_res)
+            z = rasterize(zone_polys, ft["lat_min"], ft["lon_min"], ft["lat_max"], ft["lon_max"], fine_res)
+            m |= dilate(z, ft["lat_min"], fine_res, ft.get("zone_margin_nm", zone_margin_nm))
             tiles.append(Tile(ft["lat_min"], ft["lon_min"], fine_res, m))
         land = rasterize(coarse_polys, bbox["lat_min"], bbox["lon_min"], bbox["lat_max"], bbox["lon_max"], res)
         m = dilate(land, bbox["lat_min"], res, margin_nm)
-        m |= rasterize(zone_polys, bbox["lat_min"], bbox["lon_min"], bbox["lat_max"], bbox["lon_max"], res)
+        z = rasterize(zone_polys, bbox["lat_min"], bbox["lon_min"], bbox["lat_max"], bbox["lon_max"], res)
+        m |= dilate(z, bbox["lat_min"], res, zone_margin_nm)
         tiles.append(Tile(bbox["lat_min"], bbox["lon_min"], res, m))
         return cls(tiles, [n for n, _ in forbidden])
 
