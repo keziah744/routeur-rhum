@@ -31,7 +31,9 @@ from .wind import SwitchedWind, WindField
 
 log = logging.getLogger("routeur.service")
 
-STALE_AFTER_H = 9.0   # un cycle GFS sort toutes les 6 h ; au-delà de 9 h on prévient
+# Un run GFS sort toutes les 6 h et n'est complet (+240 h) que ~5 h après : en temps normal la météo utilisée a
+# jusqu'à ~12 h (6 + 5 + 1 h entre deux calculs). Au-delà de 13 h, un run a vraiment été manqué.
+STALE_AFTER_H = 13.0
 DEFAULT_BOATS = [{"id": "keziah", "name": "Keziah"}]
 # Fichiers propres à chaque bateau (les autres de web/data/ sont partagés).
 BOAT_FILES = ("route.json", "route-prev.json", "route-safe.json", "ensemble.json", "explain.json", "status.json",

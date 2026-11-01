@@ -250,6 +250,8 @@ const cycleS = (c) => (c ? `GFS ${c.slice(6, 8)}/${c.slice(4, 6)} ${c.slice(8)}z
 
 // Âge réel de la prévision (le fichier d'état peut dater) et durée lisible.
 const wxAgeH = (w) => (w ? (Date.now() - ts(w.run)) / 3600e3 : NaN);
+// Âge normal jusqu'à ~12 h (un run toutes les 6 h, complet ~5 h après) : même seuil que STALE_AFTER_H du routeur.
+const WX_OLD_H = 13;
 function until(ms) {
   const m = Math.max(0, Math.round(ms / 60000)), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60);
   return d ? `${d} j ${h} h` : h ? `${h} h ${pad(m % 60)}` : `${m} min`;
@@ -263,7 +265,7 @@ function renderStatus() {
   else if (d?.state === "téléchargement") { cls = "warn"; txt = `Météo ${d.done}/${d.total}`; }
   else if (!w) { cls = "bad"; txt = "Pas de météo"; }
   else if (r && r.state !== "ok") { cls = "bad"; txt = "Route : problème"; }
-  else { cls = age > 9 ? "warn" : "ok"; txt = `Météo d'il y a ${Math.round(age)} h`; }
+  else { cls = age > WX_OLD_H ? "warn" : "ok"; txt = `Météo d'il y a ${Math.round(age)} h`; }
   el.className = `status ${cls}`;
   el.querySelector("span").textContent = txt;
   el.title = w ? `${cycleS(w.cycle)} · route ${r?.state || "?"}` : "";
@@ -298,7 +300,7 @@ function renderTodo() {
       : lpAge >= 4 ? row("calm", "pin", `Position envoyée il y a ${until(now - ts(lp.time))}`, "Pense à la renvoyer bientôt.", go(true))
       : row("ok", "check", `Position envoyée il y a ${until(now - ts(lp.time))}`));
   } else rows.push(row("ok", "flag", "Course terminée"));
-  if (age > 9) rows.push(row("warn", "alert", `Météo vieille de ${Math.round(age)} h`, "Le prochain calcul la remettra à jour tout seul."));
+  if (age > WX_OLD_H) rows.push(row("warn", "alert", `Météo vieille de ${Math.round(age)} h`, "Le prochain calcul la remettra à jour tout seul."));
   el.innerHTML = rows.join("");
 }
 
