@@ -59,3 +59,18 @@ def test_position_reminder_every_6h(tmp_path, monkeypatch):
 def test_no_reminder_before_start(monkeypatch):
     monkeypatch.setenv("ROUTEUR_ALERTES", "1")
     assert A.remind_positions(CFG, BOATS, {}, T0, now=T0 - H, post=pytest.fail) == []
+
+
+def test_return_reminder_once_before_programmed_orders_end(tmp_path, monkeypatch):
+    monkeypatch.setenv("ROUTEUR_ALERTES", "1")
+    monkeypatch.setattr(A, "resolve", lambda rel: tmp_path / rel)
+    monkeypatch.setattr(S, "resolve", lambda rel: tmp_path / rel)
+    S.write_json(S.prog_file("papa"), {"time": T0, "until": T0 + 10 * H})
+    sent = []
+    assert A.remind_return(CFG, BOATS, now=T0 + 9 * H, post=sent.append) == []          # trop tôt
+    assert A.remind_return(CFG, BOATS, now=T0 + 9.4 * H, post=sent.append) == ["papa"]  # 36 min avant
+    assert "Reviens programmer" in sent[0]["title"] and "Ordres" in sent[0]["message"]
+    assert A.remind_return(CFG, BOATS, now=T0 + 9.8 * H, post=sent.append) == []        # déjà prévenu
+    # Tant que les ordres courent, pas de rappel de position (le bateau suit la route).
+    assert A.remind_positions(CFG, BOATS, {"papa": None, "keziah": T0 + 9 * H}, T0, now=T0 + 9.5 * H,
+                              post=sent.append) == []

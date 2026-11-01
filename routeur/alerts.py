@@ -1,4 +1,4 @@
-"""Alertes sur le téléphone par ntfy.sh : route qui change vraiment, position à renvoyer.
+"""Alertes sur le téléphone par ntfy.sh : route qui change vraiment, position à renvoyer, ordres à reprogrammer.
 
 On s'abonne au sujet <ntfy_topic>-<bateau> dans l'application ntfy (gratuite, sans compte). Les alertes ne
 partent que si ROUTEUR_ALERTES=1 (GitHub Actions) : le PC calcule aussi des routes, il ne doit pas doubler les
@@ -25,6 +25,7 @@ NTFY = "https://ntfy.sh"
 ETA_ALERT_H = 1.0          # écart d'arrivée qui mérite une alerte
 DEVIATION_ALERT_NM = 15.0  # écart de trajectoire sur les 24 h à venir qui mérite une alerte
 REMIND_AFTER_H = 6.0       # position plus vieille que ça : rappel (puis toutes les 6 h)
+RETURN_BEFORE_MIN = 45     # « reviens programmer » : avant la fin des ordres programmés (calculs toutes les 15-30 min)
 SAIL_FR = {"Jib": "Foc", "Spi": "Spi", "Staysail": "Trinquette", "LightJib": "Foc léger", "Code0": "Code 0",
            "HeavyGnk": "Gennaker lourd", "LightGnk": "Gennaker léger"}
 
@@ -128,8 +129,9 @@ def route_change_message(prev: dict | None, doc: dict, now: float | None = None)
 
 def remind_positions(cfg: dict, boats: list[dict], last_positions: dict[str, float | None], race_start: float,
                      now: float | None = None, post=http_post) -> list[str]:
-    """Rappel « envoie ta position » quand la dernière date de plus de 6 h (au plus une fois toutes les 6 h)."""
-    from .service import read_json, write_json
+    """Rappel « envoie ta position » quand la dernière date de plus de 6 h (au plus une fois toutes les 6 h).
+    Pas de rappel tant que des ordres programmés dans le jeu courent : le bateau suit la route."""
+    from .service import prog_file, read_json, write_json
     now = now or time.time()
     if not enabled() or now < race_start + 3600:
         return []
@@ -138,15 +140,41 @@ def remind_positions(cfg: dict, boats: list[dict], last_positions: dict[str, flo
     sent = []
     for b in boats:
         last = last_positions.get(b["id"])
+        if ((read_json(prog_file(b["id"])) or {}).get("until") or 0) > now:
+            continue
         age_h = (now - (last or race_start)) / 3600
         reminded = state.get(f"rappel-{b['id']}", 0)
         if age_h >= REMIND_AFTER_H and (now - reminded) / 3600 >= REMIND_AFTER_H:
             msg = (f"Ta dernière position date de {age_h:.0f} h. La route suppose que tu as suivi ses waypoints : "
-                   "envoie ta position depuis l'onglet Météo." if last else
-                   "Aucune position envoyée depuis le départ : envoie ta position depuis l'onglet Météo.")
+                   "envoie ta position depuis l'onglet Position." if last else
+                   "Aucune position envoyée depuis le départ : envoie ta position depuis l'onglet Position.")
             if send(cfg, b["id"], f"Position à envoyer · {b.get('name', b['id'])}", msg, "round_pushpin", post):
                 state[f"rappel-{b['id']}"] = now
                 sent.append(b["id"])
+    if sent:
+        write_json(state_p, state)
+    return sent
+
+
+def remind_return(cfg: dict, boats: list[dict], now: float | None = None, post=http_post) -> list[str]:
+    """Rappel « reviens programmer la suite » 45 min avant la fin des ordres programmés dans le jeu (une fois)."""
+    from .service import prog_file, read_json, write_json
+    now = now or time.time()
+    if not enabled():
+        return []
+    state_p = resolve("data/alerts-state.json")
+    state = read_json(state_p) or {}
+    sent = []
+    for b in boats:
+        until = (read_json(prog_file(b["id"])) or {}).get("until")
+        if not until or state.get(f"retour-{b['id']}") == until or not (
+                until - RETURN_BEFORE_MIN * 60 <= now < until + 6 * 3600):
+            continue
+        msg = (f"Tes ordres programmés s'arrêtent {fmt(until)}. Ouvre l'onglet Ordres, programme la suite dans le "
+               "jeu et choisis le dernier ordre entré.")
+        if send(cfg, b["id"], f"Reviens programmer · {b.get('name', b['id'])}", msg, "alarm_clock", post):
+            state[f"retour-{b['id']}"] = until
+            sent.append(b["id"])
     if sent:
         write_json(state_p, state)
     return sent

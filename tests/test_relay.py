@@ -93,3 +93,10 @@ def test_recalc_request_without_position(tmp_root):
     msgs = [ntfy({"bateau": "keziah", "action": "recalcul", "t": 100.0}, 100.0, "r1")]
     assert R.relay(CFG, SAILS, lambda url: "\n".join(json.dumps(m) for m in msgs)) == ["keziah"]
     assert not (tmp_root / "data/positions").exists()
+
+
+def test_programmed_until_saved(tmp_root):
+    msgs = [ntfy({"bateau": "papa", "action": "programme", "jusqu": 100.0 + 8 * 3600, "t": 100.0}, 100.0, "p1"),
+            ntfy({"bateau": "papa", "action": "programme", "jusqu": 100.0 + 30 * 86400, "t": 100.0}, 100.0, "p2")]
+    assert R.relay(CFG, SAILS, lambda url: "\n".join(json.dumps(m) for m in msgs)) == ["papa"]
+    assert json.loads((tmp_root / "data/positions/papa.prog.json").read_text())["until"] == 100.0 + 8 * 3600

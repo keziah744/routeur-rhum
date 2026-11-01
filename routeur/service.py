@@ -103,6 +103,11 @@ def options_file(boat: str) -> Path:
     return resolve(f"data/positions/{boat}.options.json")
 
 
+def prog_file(boat: str) -> Path:
+    """Fin des ordres programmés dans le jeu ({"time", "until"}), indiquée depuis l'onglet Ordres."""
+    return resolve(f"data/positions/{boat}.prog.json")
+
+
 def boat_options(cfg: dict, boat: str) -> tuple[dict, bool]:
     """Options VR du bateau et si elles ont été choisies : celles cochées dans la page, sinon [boats.options],
     sinon [boat] par défaut (non choisies : la page demande de les cocher avant tout le reste)."""
@@ -441,6 +446,7 @@ class Service:
             from . import alerts
             last = {b["id"]: (read_json(position_file(b["id"])) or {}).get("time") for b in self.boats}
             alerts.remind_positions(self.cfg, self.boats, last, self.course.start_time)
+            alerts.remind_return(self.cfg, self.boats)
             return {"weather": {k: w.get(k) for k in ("cycle", "changed", "max_hour")}, "routes": report}
 
     def ensemble_cycle(self, force: bool = False) -> dict:

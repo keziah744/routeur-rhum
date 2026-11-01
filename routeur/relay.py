@@ -1,8 +1,8 @@
 """Relais sans compte : la page publie sur ntfy.sh, le routeur relève et recalcule.
 
 Chaque message ntfy est un JSON {"data": "<json>"}. `data` contient {"bateau", "t"} et, selon le cas :
-une position {"lat", "lon", "voile"?, "porte"?, "twa"?}, {"action": "recalcul"} ou {"action": "options",
-"options": {foils, hull, …}}. Pas de code : le sujet ntfy est public (il est dans la page), n'importe qui le
+une position {"lat", "lon", "voile"?, "porte"?, "twa"?}, {"action": "recalcul"}, {"action": "options",
+"options": {foils, hull, …}} ou {"action": "programme", "jusqu": <s>} (fin des ordres programmés dans le jeu). Pas de code : le sujet ntfy est public (il est dans la page), n'importe qui le
 lisant pourrait donc envoyer une position (choix de Keziah, 01/11/2026). `t` (heure d'envoi) écarte les vieux
 messages rejoués ; une ancienne signature `sig` éventuelle est ignorée.
 """
@@ -15,7 +15,8 @@ import urllib.error
 import urllib.request
 
 from .config import resolve
-from .service import OPTION_KEYS, boat_options, boats_of, options_file, position_file, read_json, write_json
+from .service import (OPTION_KEYS, boat_options, boats_of, options_file, position_file, prog_file, read_json,
+                      write_json)
 
 log = logging.getLogger("routeur.relais")
 
@@ -105,6 +106,16 @@ def parse_message(msg: dict, cfg: dict, sail_names: list[str]) -> dict | None:
             log.warning("message %s : options incomplètes, ignoré", msg.get("id"))
             return None
         return {"boat": boat, "time": min(sent, received), "options": {k: opts[k] for k in OPTION_KEYS}}
+    if body.get("action") == "programme":  # onglet Ordres : « j'ai programmé jusqu'à … » (rappel pour revenir)
+        try:
+            until = float(body["jusqu"])
+        except (KeyError, TypeError, ValueError):
+            log.warning("message %s : fin de programmation illisible, ignoré", msg.get("id"))
+            return None
+        if not sent - 86400 <= until <= sent + 7 * 86400:
+            log.warning("message %s : fin de programmation hors limites, ignoré", msg.get("id"))
+            return None
+        return {"boat": boat, "time": min(sent, received), "until": until}
     try:
         pos = {"boat": boat, "time": min(sent, received), "lat": parse_coord(body["lat"], True),
                "lon": parse_coord(body["lon"], False), "gate": int(body.get("porte", 1))}
@@ -143,11 +154,13 @@ def relay(cfg: dict, sail_names: list[str], get=http_get) -> list[str]:
     latest: dict[str, dict] = {}
     recalc: set[str] = set()
     options: dict[str, dict] = {}
+    progs: dict[str, dict] = {}
     for m in msgs:
         pos = parse_message(m, cfg, sail_names)
-        if pos and "options" in pos:
-            if pos["boat"] not in options or pos["time"] >= options[pos["boat"]]["time"]:
-                options[pos["boat"]] = pos
+        if pos and ("options" in pos or "until" in pos):
+            kept = options if "options" in pos else progs
+            if pos["boat"] not in kept or pos["time"] >= kept[pos["boat"]]["time"]:
+                kept[pos["boat"]] = pos
         elif pos and pos.get("recalc"):
             recalc.add(pos["boat"])
             log.info("[%s] recalcul demandé depuis la page", pos["boat"])
@@ -159,6 +172,9 @@ def relay(cfg: dict, sail_names: list[str], get=http_get) -> list[str]:
     for boat, o in options.items():
         write_json(options_file(boat), {"time": o["time"], "options": o["options"]})
         log.info("[%s] options reçues : %s", boat, ", ".join(k for k, v in o["options"].items() if v) or "aucune")
+    for boat, p in progs.items():
+        write_json(prog_file(boat), {"time": p["time"], "until": p["until"]})
+        log.info("[%s] ordres programmés jusqu'à %s", boat, p["until"])
     if msgs:
         write_json(state_p, {"last_id": msgs[-1]["id"], "last_time": msgs[-1].get("time")})
-    return sorted(set(latest) | recalc | set(options))
+    return sorted(set(latest) | recalc | set(options) | set(progs))

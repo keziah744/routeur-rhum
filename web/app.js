@@ -82,6 +82,7 @@ const twaS = (v) => {
 const hoursS = (h) => `${Math.floor(h / 24)} j ${pad(Math.round(h % 24))} h`;
 // Ordre à programmer dans le jeu : TWA fixe si le vent tourne le long du segment, sinon cap fixe.
 const orderS = (w) => (w.order?.mode === "twa" ? `TWA <b>${twaS(w.order.value)}</b>` : `Cap <b>${deg(w.heading)}</b>`);
+const orderTxt = (w) => (w.order?.mode === "twa" ? `TWA ${twaS(w.order.value)}` : `Cap ${deg(w.heading)}`);
 const orderWhy = (w) => (w.order?.mode === "twa" ? `Le vent tourne de ${w.order.spread_cap}° sur ce segment : programme une TWA fixe.`
   : w.order?.spread_twa >= 10 ? `Cap fixe : l'angle au vent varie de ${w.order.spread_twa}° sur ce segment.` : "");
 
@@ -291,6 +292,12 @@ function renderTodo() {
     rows.push(row(late ? "warn" : "busy", late ? "alert" : "sync", `${pend.what || "Position envoyée"} à ${hm(pend.t * 1000)}`,
       late ? "Toujours pas de nouvelle route après 30 min. Réessaie." : "Nouvelle route dans 5 à 15 min, la page se met à jour toute seule."));
   }
+  const prog = progUntil() * 1000, progOn = prog > now;
+  if (progOn) rows.push(row("ok", "clock", `Reviens avant ${whenS(prog)}`,
+    `Tes ordres programmés s'arrêtent là. Ton téléphone sonne vers ${whenS(prog - RETURN_BEFORE_MS)}.`));
+  else if (now >= start && (!R.eta || now < ts(R.eta)))
+    rows.push(row("warn", "clock", "Programme tes prochains ordres", "Puis choisis le dernier dans Ordres : ton téléphone te dira quand revenir.",
+      `<button class="btn" data-go="route">${ico("sail")}Voir les ordres</button>`));
   const chosen = chosenOpts();
   if (!pend && chosen && R.options && !sameOpts(chosen, R.options))
     rows.push(row("warn", "alert", "Route calculée avec d'autres options", "Le prochain calcul prendra les tiennes, dans l'heure au plus tard."));
@@ -299,7 +306,8 @@ function renderTodo() {
   else if (!R.eta || now < ts(R.eta) + 6 * 3600e3) {
     // Plus la dernière position est vieille, plus la route repose sur « le bateau a suivi la route ».
     const lp = R.last_position, lpAge = lp ? (now - ts(lp.time)) / 3600e3 : Infinity;
-    if (!pend) rows.push(!lp ? row("warn", "pin", "Envoie ta position", "Sinon le routeur suppose que tu as suivi sa route.", go())
+    // Ordres programmés en cours : le bateau suit la route, pas besoin de position.
+    if (!pend && !progOn) rows.push(!lp ? row("warn", "pin", "Envoie ta position", "Sinon le routeur suppose que tu as suivi sa route.", go())
       : lpAge >= 6 ? row("warn", "pin", `Ta position date de ${until(now - ts(lp.time))}`, "La route peut être fausse si tu t'es écarté.", go())
       : lpAge >= 4 ? row("calm", "pin", `Position envoyée il y a ${until(now - ts(lp.time))}`, "Pense à la renvoyer bientôt.", go(true))
       : row("ok", "check", `Position envoyée il y a ${until(now - ts(lp.time))}`));
@@ -639,7 +647,7 @@ async function sendRelay(fields, btn, msg, what) {
     const data = JSON.stringify({ bateau: state.boat, ...fields, t });
     const r = await fetch(`https://ntfy.sh/${state.topic}`, { method: "POST", body: JSON.stringify({ data }) });
     if (!r.ok) throw new Error(`erreur ${r.status}`);
-    store.set(`pending-${state.boat}`, JSON.stringify({ t, what }));
+    if (what) store.set(`pending-${state.boat}`, JSON.stringify({ t, what }));
     msg.textContent = "";
     renderTodo();
     return t;
@@ -679,6 +687,37 @@ const SOON = "Nouvelle route dans 5 à 15 min : la page se met à jour toute seu
 async function askRecalc(e) {
   if (await sendRelay({ action: "recalcul" }, e.currentTarget, $("#relay-msg"), "Recalcul demandé"))
     $("#relay-msg").textContent = `Recalcul demandé. ${SOON}`;
+}
+
+// --- rappel pour revenir : fin des ordres programmés dans le jeu -------------------------------------
+const RETURN_BEFORE_MS = 45 * 60e3;  // RETURN_BEFORE_MIN du routeur (alerts.py)
+// Heure (s) où s'arrêtent les ordres programmés, gardée sur ce téléphone ; 0 si aucune.
+function progUntil() {
+  try { return JSON.parse(store.get(`prog-${state.boat}`, "") || "null")?.until || 0; } catch { return 0; }
+}
+// « 18:40 » aujourd'hui, « lun. 2 18:40 » un autre jour.
+const whenS = (t) => (new Date(t).toDateString() === new Date().toDateString() ? hm(t) : `${dtDayShort.format(new Date(t))} ${hm(t)}`);
+function renderProg() {
+  const R = state.route, sel = $("#prog-last"), now = Date.now();
+  if (!R) { sel.innerHTML = ""; return; }
+  const W = R.waypoints, until = progUntil();
+  // Chaque ordre court jusqu'au waypoint suivant (ou l'arrivée) : c'est l'heure où il faut avoir programmé la suite.
+  const opts = W.map((w, k) => ({ w, end: ts(W[k + 1]?.t || R.eta) })).filter((o) => o.end > now && o.end - now < 72 * 3600e3);
+  sel.innerHTML = `<option value="">Dernier ordre entré dans le jeu…</option>` + opts.map(({ w, end }) =>
+    `<option value="${end / 1000}" ${Math.abs(end / 1000 - until) < 60 ? "selected" : ""}>WP${pad(w.n)} · ${whenS(ts(w.t))} · ${orderTxt(w)}</option>`).join("");
+  if (!$("#prog-msg").dataset.busy)
+    $("#prog-msg").textContent = until * 1000 > now ? `Rappel vers ${whenS(until * 1000 - RETURN_BEFORE_MS)}. Reviens avant ${whenS(until * 1000)}.` : "";
+}
+async function sendProg(e) {
+  const until = Number($("#prog-last").value), msg = $("#prog-msg");
+  if (!until) { msg.textContent = "Choisis d'abord le dernier ordre que tu as entré dans le jeu."; return; }
+  msg.dataset.busy = "1";
+  const t = await sendRelay({ action: "programme", jusqu: until }, e.currentTarget, msg, null);
+  delete msg.dataset.busy;
+  if (!t) return;
+  store.set(`prog-${state.boat}`, JSON.stringify({ t, until }));
+  renderProg(); renderTodo();
+  toast(`Rappel vers ${whenS(until * 1000 - RETURN_BEFORE_MS)}`);
 }
 
 // --- options du bateau : obligatoires avant le reste, le routeur calcule toute la route avec -------
@@ -749,7 +788,7 @@ function showTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.id === `tab-${name}`));
   if (name === "carte") setTimeout(() => { map.invalidateSize(); fitOnce(); drawWind(); }, 50);
 }
-const renderAll = () => { renderTodo(); renderNotes(); renderScenarios(); renderBord(); renderRoute(); };
+const renderAll = () => { renderTodo(); renderNotes(); renderScenarios(); renderBord(); renderRoute(); renderProg(); };
 
 function initUi() {
   state.fmt = store.get("fmt", "dms");
@@ -767,6 +806,7 @@ function initUi() {
   $("#alerts-copy").onclick = () => copyText($("#alerts-topic").textContent);
   $("#relay-form").oninput = (e) => { twaInput(e); relayPreview(); };
   $("#setup-form").onsubmit = sendOptions;
+  $("#prog-ok").onclick = sendProg;
   $("#setup-form").onchange = setupCount;
   $("#setup-all").onclick = () => { OPTIONS.forEach(([k]) => ($("#setup-form")[k].checked = true)); setupCount(); };
   $("#setup-cancel").onclick = () => { setupOpen = false; renderSetup(); };
