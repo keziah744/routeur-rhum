@@ -17,6 +17,14 @@ from .isochrones import MANEUVER_GYBE, MANEUVER_SAIL, MANEUVER_TACK, RouteResult
 from .polar import Polar
 from .wind import WindField
 
+# Noms des voiles tels qu'affichés dans le jeu (identiques en version française).
+SAIL_LABEL = {"Jib": "Jib", "Spi": "Spi", "Staysail": "Staysail", "LightJib": "Light Jib", "Code0": "Code 0",
+              "HeavyGnk": "Heavy Gnk", "LightGnk": "Light Gnk"}
+
+
+def sail_label(name: str) -> str:
+    return SAIL_LABEL.get(name, name)
+
 
 @dataclass
 class Waypoint:
@@ -316,14 +324,14 @@ def to_csv(doc: dict) -> str:
                 "ordre", "valeur_ordre", "motif"])
     for p in doc["waypoints"]:
         o = p.get("order") or {}
-        w.writerow([p["n"], p["t"], p["lat"], p["lon"], p["heading"], p["twa"], p["tws"], p["twd"], p["sail"],
+        w.writerow([p["n"], p["t"], p["lat"], p["lon"], p["heading"], p["twa"], p["tws"], p["twd"], sail_label(p["sail"]),
                     p["speed"], o.get("mode", ""), o.get("value", ""), p["reason"]])
     return buf.getvalue()
 
 
 def to_gpx(doc: dict) -> str:
     rows = "\n".join(f'    <rtept lat="{p["lat"]}" lon="{p["lon"]}"><name>WP{p["n"]:02d}</name><time>{p["t"]}</time>'
-                     f'<desc>{p["sail"]} · cap {p["heading"]}° · {p["reason"]}</desc></rtept>' for p in doc["waypoints"])
+                     f'<desc>{sail_label(p["sail"])} · cap {p["heading"]}° · {p["reason"]}</desc></rtept>' for p in doc["waypoints"])
     return ('<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="routeur-rhum" '
             'xmlns="http://www.topografix.com/GPX/1/1">\n  <rte><name>Route du Rhum - Ultim</name>\n'
             f'{rows}\n  </rte>\n</gpx>\n')

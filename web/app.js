@@ -3,18 +3,18 @@
 
 const SAIL_COLORS = { Jib: "#8ecae6", Spi: "#ffb703", Staysail: "#2a9dc0", LightJib: "#a7c957",
   Code0: "#ef7b5a", HeavyGnk: "#f4a261", LightGnk: "#c8a2e0" };
-// Noms des voiles tels qu'affichés dans la version française du jeu.
-const SAIL_FR = { Jib: "Foc", Spi: "Spi", Staysail: "Trinquette", LightJib: "Foc léger", Code0: "Code 0",
-  HeavyGnk: "Gennaker lourd", LightGnk: "Gennaker léger" };
-const sailFr = (s) => SAIL_FR[s] || s;
+// Noms des voiles tels qu'affichés dans le jeu (identiques en version française).
+const SAIL_LABEL = { Jib: "Jib", Spi: "Spi", Staysail: "Staysail", LightJib: "Light Jib", Code0: "Code 0",
+  HeavyGnk: "Heavy Gnk", LightGnk: "Light Gnk" };
+const sailLabel = (s) => SAIL_LABEL[s] || s;
 // Options du jeu (clés du routeur), dans l'ordre de l'écran « Les options de … ».
 const OPTIONS = [
   ["foils", "Foils", "+4 % de vitesse de 16 à 35 nœuds, du vent de travers au portant"],
   ["hull", "Coque polie", "+0,3 % de vitesse partout"],
   ["winch_pro", "Winchs pro", "Virements, empannages et changements de voile plus courts"],
   ["auto_sail", "Voiles auto", "Le jeu change de voile tout seul"],
-  ["light_sails", "Voiles légères", "Foc léger et gennaker léger, pour le petit temps"],
-  ["heavy_sails", "Voiles lourdes", "Trinquette et gennaker lourd, pour le vent fort"],
+  ["light_sails", "Voiles légères", "Light Jib et Light Gnk, pour le petit temps"],
+  ["heavy_sails", "Voiles lourdes", "Staysail et Heavy Gnk, pour le vent fort"],
   ["reach_sail", "Code 0", "Pour le vent de travers"],
 ];
 const $ = (s) => document.querySelector(s);
@@ -228,17 +228,17 @@ function renderBord() {
     <div><dt>Distance restante</dt><dd>${Math.round(rest).toLocaleString("fr-FR")}<small>milles</small></dd></div>
     <div><dt>Vitesse ${at?.before ? "au départ" : "prévue"}</dt><dd>${fr1(p[6])}<small>kt</small></dd></div>
     <div><dt>Vent ${at?.before ? "au départ" : "maintenant"}</dt><dd>${wd ? `${deg(wd.twd)} · ${Math.round(wd.tws)}` : Math.round(p[4])}<small>kt</small></dd></div>
-    <div><dt>Voile</dt><dd class="wrap">${swatch(names[p[3]])}${sailFr(names[p[3]])}</dd></div>`;
+    <div><dt>Voile</dt><dd class="wrap">${swatch(names[p[3]])}${sailLabel(names[p[3]])}</dd></div>`;
 
   const wp = R.waypoints.find((w) => ts(w.t) > now);
   $("#next-wp").innerHTML = wp ? `<h2>${wp.n === 0 ? "Premier ordre, au départ" : "Prochain ordre"} <span class="tag">WP${pad(wp.n)}</span></h2>
     <p class="when">${ico("clock")}${fmtT(wp.t)} · dans ${until(ts(wp.t) - now)}</p>
-    <p class="order-main"><span>${orderS(wp)}</span>${lockS(wp)}<span class="sail">${swatch(wp.sail)}${sailFr(wp.sail)}</span></p>
+    <p class="order-main"><span>${orderS(wp)}</span>${lockS(wp)}<span class="sail">${swatch(wp.sail)}${sailLabel(wp.sail)}</span></p>
     ${coordsHtml(wp)}
     <p class="why-line">${[wp.reason, orderWhy(wp)].filter(Boolean).join(" · ")}</p>` : "";
   const sc = R.sail_changes.find((c) => ts(c.t) > now);
   $("#next-sail").innerHTML = sc ? `${ico("sail")}<span>Changement de voile ${fmtT(sc.t)} (dans ${until(ts(sc.t) - now)}) :
-    ${sailFr(sc.sail_from)} → <b>${sailFr(sc.sail_to)}</b>, +${String(sc.gain_pct).replace(".", ",")} % de vitesse.</span>` : "";
+    ${sailLabel(sc.sail_from)} → <b>${sailLabel(sc.sail_to)}</b>, +${String(sc.gain_pct).replace(".", ",")} % de vitesse.</span>` : "";
 
   const C = R.comparison;
   $("#cmp").innerHTML = C ? `<h3>Par rapport à la route précédente</h3>
@@ -362,11 +362,11 @@ function renderRoute() {
   const html = items.filter((x, k) => !only || (x.t > now - 3600e3 && x.t < now + 48 * 3600e3) || (now < ts(R.start_time) && x.t < ts(R.start_time) + 48 * 3600e3) || k === firstFuture)
     .map(({ t, w, c }) => {
       const past = t < now ? " past" : "";
-      if (c) return `<li class="sc${past}">${when(c.t)}<div class="body">${swatch(c.sail_to)}Voile : ${sailFr(c.sail_from)} → <b>${sailFr(c.sail_to)}</b>
+      if (c) return `<li class="sc${past}">${when(c.t)}<div class="body">${swatch(c.sail_to)}Voile : ${sailLabel(c.sail_from)} → <b>${sailLabel(c.sail_to)}</b>
         <span class="note">· +${String(c.gain_pct).replace(".", ",")} % · vent ${c.tws} kt</span></div></li>`;
       const changed = prev.length && !prev.some(([a, b]) => hav(a, b, w.lat, w.lon) < 10);
       return `<li class="${past}">${when(w.t)}<div class="body">
-        <p class="act"><span class="n">WP${pad(w.n)}</span><span>${orderS(w)}</span>${lockS(w)}<span class="sail">${swatch(w.sail)}${sailFr(w.sail)}</span>${changed ? '<span class="badge warn">modifié</span>' : ""}${w.beyond_forecast ? '<span class="badge warn">hors prévision</span>' : ""}</p>
+        <p class="act"><span class="n">WP${pad(w.n)}</span><span>${orderS(w)}</span>${lockS(w)}<span class="sail">${swatch(w.sail)}${sailLabel(w.sail)}</span>${changed ? '<span class="badge warn">modifié</span>' : ""}${w.beyond_forecast ? '<span class="badge warn">hors prévision</span>' : ""}</p>
         ${coordsHtml(w, false)}
         <p class="m"><span>TWA <b>${twaS(w.twa)}</b></span><span>vent <b>${deg(w.twd)} · ${w.tws.toFixed(0)} kt</b></span><span><b>${fr1(w.speed)} kt</b> prévus</span><span>${fmtZ(w.t)}</span></p>
         <p class="why">${[w.reason, orderWhy(w)].filter(Boolean).join(" · ")}</p></div></li>`;
@@ -446,7 +446,7 @@ function drawRoute() {
   for (const g of R.gates) L.polyline([g.a, g.b], { color: "#f2b84b", weight: 4 }).bindTooltip(g.name, { className: "wp-tip" }).addTo(layers.gates);
   for (const w of R.waypoints) {
     L.circleMarker([w.lat, w.lon], { radius: 3, color: "#e6edf3", weight: 1, fillColor: "#0b1118", fillOpacity: 1 })
-      .bindTooltip(`WP${pad(w.n)} · ${fmtT(w.t)}<br>${latS(w.lat)} ${lonS(w.lon)}<br>cap ${deg(w.heading)} · ${sailFr(w.sail)}<br>${w.reason}`, { className: "wp-tip" })
+      .bindTooltip(`WP${pad(w.n)} · ${fmtT(w.t)}<br>${latS(w.lat)} ${lonS(w.lon)}<br>cap ${deg(w.heading)} · ${sailLabel(w.sail)}<br>${w.reason}`, { className: "wp-tip" })
       .addTo(layers.wps);
   }
   if ($("#show-prev").checked && R.comparison?.previous_track)
@@ -518,7 +518,7 @@ async function detectApi() {
 function fillForm() {
   const R = state.route; if (!R) return;
   for (const f of [$("#pos-form"), $("#relay-form")]) {
-    f.sail.innerHTML = `<option value="">je ne sais pas</option>` + R.sail_names.map((s) => `<option value="${s}">${sailFr(s)}</option>`).join("");
+    f.sail.innerHTML = `<option value="">je ne sais pas</option>` + R.sail_names.map((s) => `<option value="${s}">${sailLabel(s)}</option>`).join("");
     f.gate.innerHTML = R.gates.map((g, k) => `<option value="${k}">${g.name}</option>`).join("");
     f.gate.onchange = () => (f.gate.dataset.touched = "1");
   }

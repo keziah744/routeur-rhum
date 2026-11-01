@@ -22,6 +22,7 @@ log = logging.getLogger("routeur.relais")
 
 NTFY = "https://ntfy.sh"
 MAX_SKEW_S = 900   # écart toléré entre l'heure d'envoi écrite par la page et l'heure de réception ntfy
+# Noms français acceptés en plus des noms du jeu (« Jib », « Light Jib », « Code 0 »…).
 SAIL_FR = {"foc": "Jib", "spi": "Spi", "trinquette": "Staysail", "foc léger": "LightJib", "code 0": "Code0",
            "gennaker lourd": "HeavyGnk", "gennaker léger": "LightGnk"}
 
@@ -44,9 +45,10 @@ def parse_coord(txt, is_lat: bool) -> float:
 
 
 def sail_index(name: str, sail_names: list[str]) -> int | None:
-    name = (name or "").strip()
-    name = SAIL_FR.get(name.lower(), name)
-    return sail_names.index(name) if name in sail_names else None
+    key = (name or "").strip().lower()
+    key = SAIL_FR.get(key, key).lower().replace(" ", "")
+    low = [s.lower() for s in sail_names]
+    return low.index(key) if key in low else None
 
 
 def http_get(url: str, timeout: float = 30) -> str:

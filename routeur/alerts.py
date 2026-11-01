@@ -18,6 +18,7 @@ import numpy as np
 
 from .config import resolve
 from .geo import haversine_nm
+from .roadmap import sail_label
 
 log = logging.getLogger("routeur.alertes")
 
@@ -26,8 +27,6 @@ ETA_ALERT_H = 1.0          # écart d'arrivée qui mérite une alerte
 DEVIATION_ALERT_NM = 15.0  # écart de trajectoire sur les 24 h à venir qui mérite une alerte
 REMIND_AFTER_H = 6.0       # position plus vieille que ça : rappel (puis toutes les 6 h)
 RETURN_BEFORE_MIN = 45     # « reviens programmer » : avant la fin des ordres programmés (calculs toutes les 15-30 min)
-SAIL_FR = {"Jib": "Foc", "Spi": "Spi", "Staysail": "Trinquette", "LightJib": "Foc léger", "Code0": "Code 0",
-           "HeavyGnk": "Gennaker lourd", "LightGnk": "Gennaker léger"}
 
 
 def _paris():
@@ -123,7 +122,7 @@ def route_change_message(prev: dict | None, doc: dict, now: float | None = None)
     wp = next((w for w in doc.get("waypoints", []) if ts(w["t"]) > now), None)
     if wp:
         lines.append(f"Prochain waypoint WP{wp['n']:02d} à {fmt(ts(wp['t']))} : cap {round(wp['heading']) % 360:03d}°, "
-                     f"{SAIL_FR.get(wp['sail'], wp['sail'])}.")
+                     f"{sail_label(wp['sail'])}.")
     return "\n".join(lines)
 
 

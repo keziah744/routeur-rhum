@@ -17,7 +17,7 @@ from .roadmap import iso
 log = logging.getLogger("routeur.explain")
 
 # Changer ce numéro quand le format change : les explications existantes sont alors refaites.
-PROMPT_VERSION = 3
+PROMPT_VERSION = 4
 
 SYSTEM = """Tu es l'équipier d'un joueur de Virtual Regatta (Route du Rhum, Ultim). Un moteur de routage a déjà
 calculé la route : tu ne recalcules rien, tu la résumes pour qu'il comprenne d'un coup d'œil sur son téléphone.
@@ -35,6 +35,7 @@ Règles :
 - Uniquement d'après les données fournies. Un système météo (alizés, front…) se présente comme une hypothèse :
   « on dirait un front », jamais comme une certitude.
 - Heures de Paris, jours en toutes lettres : « dimanche à 13 h ». Pas de markdown.
+- Voiles avec les noms du jeu, jamais traduits : Jib, Spi, Staysail, Light Jib, Code 0, Heavy Gnk, Light Gnk.
 - Ne promets jamais une arrivée certaine."""
 
 
