@@ -190,6 +190,23 @@ main { flex: 1; min-height: 0; position: relative; }
 .pos .btn { margin-top: 4px; }
 .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .two > label { min-width: 0; }
+.twa { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 8px; }
+.twa legend { padding: 0; margin-bottom: 5px; font-size: 13px; color: var(--mute); font-weight: 500; }
+.twa-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 10px; }
+.deg { position: relative; }
+.deg::after { content: "°"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--mute); font: 16px var(--mono); pointer-events: none; }
+.pos .deg input { padding-right: 28px; font-family: var(--mono); }
+.seg.side { display: grid; grid-template-columns: 1fr 1fr; }
+.pos .side label { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; border-radius: 7px; color: var(--mute);
+  font: 600 14px var(--sans); cursor: pointer; transition: background .15s, color .15s; }
+.pos .side input { position: absolute; opacity: 0; width: 1px; height: 1px; min-height: 0; pointer-events: none; }
+.pos .side label:has(input:checked) { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .35); }
+.pos .side label:has(input:focus-visible) { outline: 2px solid var(--acc); outline-offset: 1px; }
+.side i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.side i.port { background: var(--bad); }   /* feux de route : bâbord rouge, tribord vert */
+.side i.stbd { background: var(--ok); }
+.help { font-size: 13px; color: var(--mute); }
+.help b { color: var(--ink-2); font-weight: 600; }
 .preview { font: 14px var(--mono); color: var(--acc); min-height: 1.2em; margin-top: -4px; }
 .msg { font-size: 14px; color: var(--ink-2); min-height: 1em; }
 .steps { margin: 12px 0 0; padding-left: 22px; font-size: 14.5px; display: grid; gap: 10px; }

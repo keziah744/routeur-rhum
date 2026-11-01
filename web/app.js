@@ -74,7 +74,11 @@ function coord(v, pos, neg, degW) {
 const latS = (v) => coord(v, "N", "S", 2);
 const lonS = (v) => coord(v, "E", "W", 3);
 const deg = (v) => `${Math.round(((v % 360) + 360) % 360).toString().padStart(3, "0")}°`;
-const twaS = (v) => `${v > 0 ? "+" : ""}${Math.round(v)}°`;
+// TWA en degrés et côté d'où vient le vent (routeur : négative = bâbord) ; 0° et 180° n'ont pas de côté.
+const twaS = (v) => {
+  const a = Math.round(Math.abs(v));
+  return a === 0 || a === 180 ? `${a}°` : `${a}° ${v < 0 ? "bâbord" : "tribord"}`;
+};
 const hoursS = (h) => `${Math.floor(h / 24)} j ${pad(Math.round(h % 24))} h`;
 // Ordre à programmer dans le jeu : TWA fixe si le vent tourne le long du segment, sinon cap fixe.
 const orderS = (w) => (w.order?.mode === "twa" ? `TWA <b>${twaS(w.order.value)}</b>` : `Cap <b>${deg(w.heading)}</b>`);
@@ -648,11 +652,28 @@ async function sendPosition(e) {
   const msg = $("#relay-msg");
   if (Number.isNaN(lat) || Number.isNaN(lon)) { msg.textContent = "Latitude ou longitude illisible."; return; }
   if (lat < 5 || lat > 55 || lon < -70 || lon > 5) { msg.textContent = "Cette position est hors du parcours : vérifie N/S et E/W."; return; }
-  const ok = await sendRelay({ lat, lon, voile: f.sail.value, porte: +f.gate.value, twa: f.twa.value.trim() },
+  // TWA : degrés (0 à 180) + bâbord/tribord, envoyée signée au routeur (bâbord = négative).
+  let twa = "";
+  const deg = f.twa.value.trim().replace(",", ".");
+  if (deg) {
+    const v = Math.abs(Number(deg));
+    if (Number.isNaN(v) || v > 180) { msg.textContent = "TWA illisible : un nombre de 0 à 180."; f.twa.focus(); return; }
+    if (!f.side.value && v > 0 && v < 180) { msg.textContent = "Pour le TWA, choisis bâbord ou tribord."; return; }
+    twa = String(f.side.value === "-1" ? -v : v);
+  }
+  const ok = await sendRelay({ lat, lon, voile: f.sail.value, porte: +f.gate.value, twa },
     f.querySelector("button[type=submit]"), msg, "Position envoyée");
   if (!ok) return;
   msg.textContent = `Position ${latS(lat)} ${lonS(lon)} envoyée. ${SOON}`;
-  f.lat.value = ""; f.lon.value = ""; f.twa.value = ""; relayPreview();
+  f.lat.value = ""; f.lon.value = ""; f.twa.value = ""; f.querySelectorAll("[name=side]").forEach((r) => (r.checked = false));
+  relayPreview();
+}
+// « -125 » tapé ou collé : 125 bâbord.
+function twaInput(e) {
+  const t = e.target;
+  if (t.name !== "twa" || !t.value.trim().startsWith("-")) return;
+  t.value = t.value.trim().slice(1);
+  t.form.querySelector('input[name=side][value="-1"]').checked = true;
 }
 const SOON = "Nouvelle route dans 5 à 15 min : la page se met à jour toute seule.";
 async function askRecalc(e) {
@@ -744,7 +765,7 @@ function initUi() {
   $("#relay-form").onsubmit = sendPosition;
   $("#relay-recalc").onclick = askRecalc;
   $("#alerts-copy").onclick = () => copyText($("#alerts-topic").textContent);
-  $("#relay-form").oninput = relayPreview;
+  $("#relay-form").oninput = (e) => { twaInput(e); relayPreview(); };
   $("#setup-form").onsubmit = sendOptions;
   $("#setup-form").onchange = setupCount;
   $("#setup-all").onclick = () => { OPTIONS.forEach(([k]) => ($("#setup-form")[k].checked = true)); setupCount(); };

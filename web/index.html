@@ -106,10 +106,18 @@
           <label>Longitude<input name="lon" placeholder="23 40 06 W" autocapitalize="characters" spellcheck="false" required></label>
         </div>
         <p class="preview" id="relay-preview"></p>
-        <div class="two">
-          <label>Voile actuelle<select name="sail"></select></label>
-          <label>TWA actuelle<input name="twa" inputmode="text" placeholder="-125"></label>
-        </div>
+        <label>Voile actuelle<select name="sail"></select></label>
+        <fieldset class="twa">
+          <legend>Angle du vent (TWA), si tu l'as</legend>
+          <div class="twa-row">
+            <span class="deg"><input name="twa" inputmode="numeric" placeholder="125" maxlength="5" aria-label="TWA en degrés, de 0 à 180"></span>
+            <div class="seg side" role="radiogroup" aria-label="Côté d'où vient le vent">
+              <label><input type="radio" name="side" value="-1"><i class="port"></i>Bâbord</label>
+              <label><input type="radio" name="side" value="1"><i class="stbd"></i>Tribord</label>
+            </div>
+          </div>
+          <p class="help">Le TWA, c'est l'angle entre le vent et l'avant du bateau, de 0 à 180°. <b>Bâbord</b> : le vent arrive par la gauche du bateau. <b>Tribord</b> : par la droite.</p>
+        </fieldset>
         <label>Prochaine marque<select name="gate"></select></label>
         <button class="btn" type="submit">Envoyer ma position</button>
         <p class="msg" id="relay-msg" role="status"></p>
