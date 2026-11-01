@@ -62,9 +62,13 @@ Clé Claude : secret `ANTHROPIC_API_KEY` du dépôt (Settings -> Secrets and var
 dans `web/data/bateaux/<id>/`. Lien direct : `https://keziah744.github.io/routeur-rhum/?bateau=papa`.
 Deux bateaux partis du même point (avant le départ) ne sont calculés qu'une fois.
 
-Envoi de la position sans compte : la page publie un message signé sur ntfy.sh (sujet `[relay]` de `config.toml`),
-`relais.yml` le relève. Le code de chaque bateau ne circule jamais : il signe le message (HMAC-SHA256). Codes à
-régler soi-même : secrets `ROUTEUR_CODE_KEZIAH` et `ROUTEUR_CODE_PAPA` (majuscules et espaces ignorés).
+Envoi de la position sans compte ni code : la page publie un message sur ntfy.sh (sujet `[relay]` de
+`config.toml`), `relais.yml` le relève. Le sujet est public : quelqu'un qui lit la page pourrait envoyer une fausse
+position (choix assumé, 01/11/2026).
+
+Options du jeu : tant qu'un bateau n'a pas les siennes (`[boats.options]` ou cochées dans la page), la page n'affiche
+que l'écran « Les options de … ». Celles cochées sont relayées comme une position, rangées dans
+`data/positions/<bateau>.options.json` et passent avant `config.toml`.
 
 ## Explications par Claude (facultatif)
 

@@ -20,6 +20,19 @@
 </header>
 
 <main>
+  <!-- Options du bateau : à cocher avant tout le reste, le routeur calcule la route avec -->
+  <section id="setup" class="setup" aria-labelledby="setup-h">
+    <h1 class="page-h" id="setup-h">Les options de <span class="who" id="setup-boat"></span></h1>
+    <p class="lede">Coche ce que tu as dans le jeu. Toute la route est calculée avec : sans foils ou sans Code 0, le bateau ne va pas aussi vite.</p>
+    <form id="setup-form" class="opts">
+      <button class="btn ghost" type="button" id="setup-all">J'ai le pack complet</button>
+      <div class="opt-list" id="setup-list"></div>
+      <button class="btn" type="submit" id="setup-ok">Valider</button>
+      <p class="msg" id="setup-msg" role="status"></p>
+      <button class="link" type="button" id="setup-cancel">Annuler</button>
+    </form>
+  </section>
+
   <!-- Bord : l'essentiel d'un coup d'œil -->
   <section id="tab-bord" class="tab active" aria-label="Tableau de bord">
     <section class="arrive" id="arrive"></section>
@@ -98,12 +111,16 @@
           <label>TWA actuelle<input name="twa" inputmode="text" placeholder="-125"></label>
         </div>
         <label>Prochaine marque<select name="gate"></select></label>
-        <label>Code du bateau<input name="code" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false" required></label>
-        <label class="chk"><input type="checkbox" name="keep" checked>Retenir le code sur ce téléphone</label>
         <button class="btn" type="submit">Envoyer ma position</button>
         <p class="msg" id="relay-msg" role="status"></p>
         <button class="link" type="button" id="relay-recalc">Recalculer ma route sans changer la position</button>
       </form>
+    </section>
+
+    <section class="block" id="opts-card" hidden>
+      <h2>Options du bateau <span class="who" id="opts-boat"></span></h2>
+      <p class="lede" id="opts-sum"></p>
+      <button class="btn ghost" type="button" id="opts-edit">Modifier mes options</button>
     </section>
 
     <section class="block" id="actions" hidden>

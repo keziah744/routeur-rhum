@@ -29,8 +29,6 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     env:
       ROUTEUR_PREFER_S3: "1"
-      ROUTEUR_CODE_KEZIAH: ${{ secrets.ROUTEUR_CODE_KEZIAH }}
-      ROUTEUR_CODE_PAPA: ${{ secrets.ROUTEUR_CODE_PAPA }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

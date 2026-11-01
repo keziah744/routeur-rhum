@@ -43,7 +43,7 @@ safety_margin_nm = 0.5
 file = "data/course/route-du-rhum-2026.json"
 
 [boat]
-# Options Virtual Regatta achetées (true = disponible).
+# Options Virtual Regatta par défaut (true = disponible) ; chaque bateau les choisit dans la page.
 foils = true
 hull = true
 winch_pro = true
@@ -102,14 +102,23 @@ effort = "medium"
 [[boats]]
 id = "keziah"
 name = "Keziah"
+# Pack complet (choix de Keziah, 01/11/2026). Sans [boats.options], la page demande de cocher les options
+# avant tout le reste ; celles cochées dans la page passent toujours avant celles-ci.
+[boats.options]
+foils = true
+hull = true
+winch_pro = true
+auto_sail = true
+light_sails = true
+heavy_sails = true
+reach_sail = true
 
 [[boats]]
 id = "papa"
 name = "Papa"
 
 [relay]
-# Sujet ntfy.sh où la page publie les positions (public : seul le code de chaque bateau, secret GitHub
-# ROUTEUR_CODES, protège l'envoi).
+# Sujet ntfy.sh où la page publie positions et options (public, sans code : choix de Keziah, 01/11/2026).
 ntfy_topic = "rr-a6116c1aa98c4c1611d8f1c9"
 # Alertes (application ntfy) : sujet <ntfy_topic>-<bateau> ; un appui sur l'alerte ouvre cette page.
 page_url = "https://keziah744.github.io/routeur-rhum/"

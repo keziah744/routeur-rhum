@@ -93,6 +93,27 @@ def position_file(boat: str) -> Path:
     return resolve(f"data/positions/{boat}.json")
 
 
+# Options VR (clés de [boat] dans config.toml), dans l'ordre de la page.
+OPTION_KEYS = ("foils", "hull", "winch_pro", "auto_sail", "light_sails", "heavy_sails", "reach_sail")
+
+
+def options_file(boat: str) -> Path:
+    return resolve(f"data/positions/{boat}.options.json")
+
+
+def boat_options(cfg: dict, boat: str) -> tuple[dict, bool]:
+    """Options VR du bateau et si elles ont été choisies : celles cochées dans la page, sinon [boats.options],
+    sinon [boat] par défaut (non choisies : la page demande de les cocher avant tout le reste)."""
+    entry = next((b for b in boats_of(cfg) if b["id"] == boat), {})
+    opts = {**(cfg.get("boat") or {}), **(entry.get("options") or {})}
+    chosen = bool(entry.get("options"))
+    sent = read_json(options_file(boat))
+    if sent and isinstance(sent.get("options"), dict):
+        opts.update({k: bool(v) for k, v in sent["options"].items() if k in OPTION_KEYS})
+        chosen = True
+    return {k: bool(opts.get(k, False)) for k in OPTION_KEYS}, chosen
+
+
 class Service:
     def __init__(self, cfg: dict, boat: str | None = None):
         self.cfg = cfg
@@ -100,9 +121,8 @@ class Service:
         self.boat = boat or self.boats[0]["id"]
         if self.boat not in {b["id"] for b in self.boats}:
             raise ValueError(f"bateau inconnu : {self.boat}")
-        # Options VR : celles de [boat], sauf celles que le bateau redéfinit ([boats.options]).
-        entry = next(b for b in self.boats if b["id"] == self.boat)
-        self.options = {**cfg["boat"], **(entry.get("options") or {})}
+        # Options VR : celles cochées dans la page, sinon [boats.options], sinon [boat].
+        self.options, _ = boat_options(cfg, self.boat)
         self.out = resolve(cfg["service"]["output_dir"])
         self.bout = self.out / "bateaux" / self.boat
         self.bout.mkdir(parents=True, exist_ok=True)

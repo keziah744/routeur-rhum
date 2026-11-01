@@ -7,12 +7,23 @@ const SAIL_COLORS = { Jib: "#8ecae6", Spi: "#ffb703", Staysail: "#2a9dc0", Light
 const SAIL_FR = { Jib: "Foc", Spi: "Spi", Staysail: "Trinquette", LightJib: "Foc léger", Code0: "Code 0",
   HeavyGnk: "Gennaker lourd", LightGnk: "Gennaker léger" };
 const sailFr = (s) => SAIL_FR[s] || s;
+// Options du jeu (clés du routeur), dans l'ordre de l'écran « Les options de … ».
+const OPTIONS = [
+  ["foils", "Foils", "+4 % de vitesse de 16 à 35 nœuds, du vent de travers au portant"],
+  ["hull", "Coque polie", "+0,3 % de vitesse partout"],
+  ["winch_pro", "Winchs pro", "Virements, empannages et changements de voile plus courts"],
+  ["auto_sail", "Voiles auto", "Le jeu change de voile tout seul"],
+  ["light_sails", "Voiles légères", "Foc léger et gennaker léger, pour le petit temps"],
+  ["heavy_sails", "Voiles lourdes", "Trinquette et gennaker lourd, pour le vent fort"],
+  ["reach_sail", "Code 0", "Pour le vent de travers"],
+];
 const $ = (s) => document.querySelector(s);
 const state = { route: null, main: null, safe: null, ens: null, ensSt: null, choice: "safe",
   status: null, wx: null, wind: null, api: false, fmt: "dms", slider: 0, boats: [], boat: null, topic: null };
 const store = {
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* stockage indisponible */ } },
+  del(k) { try { localStorage.removeItem(k); } catch { /* stockage indisponible */ } },
 };
 
 // --- formats ----------------------------------------------------------------------------------
@@ -274,6 +285,9 @@ function renderTodo() {
     rows.push(row(late ? "warn" : "busy", late ? "alert" : "sync", `${pend.what || "Position envoyée"} à ${hm(pend.t * 1000)}`,
       late ? "Toujours pas de nouvelle route après 30 min. Réessaie." : "Nouvelle route dans 5 à 15 min, la page se met à jour toute seule."));
   }
+  const chosen = chosenOpts();
+  if (!pend && chosen && R.options && !sameOpts(chosen, R.options))
+    rows.push(row("warn", "alert", "Route calculée avec d'autres options", "Le prochain calcul prendra les tiennes, dans l'heure au plus tard."));
   if (now < start) rows.push(row("calm", "clock", `Départ dans ${until(start - now)}`,
     `${fmtT(new Date(start).toISOString())}. Rien à faire : la route se recalcule toute seule à chaque nouvelle météo, et bougera encore d'ici là.`));
   else if (!R.eta || now < ts(R.eta) + 6 * 3600e3) {
@@ -478,7 +492,7 @@ function drawBoat() {
 async function detectApi() {
   try { const r = await fetch("/api/ping", { cache: "no-store" }); state.api = r.ok; } catch { state.api = false; }
   $("#actions").hidden = !state.api;
-  // Version publiée sur GitHub Pages : position et recalcul passent par le relais ntfy (code du bateau).
+  // Version publiée sur GitHub Pages : position, options et recalcul passent par le relais ntfy.
   $("#gh").hidden = state.api || !/\.github\.io$/.test(location.hostname);
   $("#relay").hidden = state.api || !state.topic;
 }
@@ -555,8 +569,9 @@ async function refresh() {
       state.safe = e.recommended !== "gfs" ? await getJSON(bpath("route-safe.json")).catch(() => null) : null;
     }
   } catch { state.ens = null; state.safe = null; }
+  try { const b = await getJSON("data/boats.json"); if (Array.isArray(b?.boats) && b.boats.length) state.boats = b.boats; } catch { /* inchangé */ }
   if (boat !== state.boat) return;
-  checkPending();
+  checkPending(); checkSentOpts(); renderSetup();
   pickRoute();
   const run = state.status?.weather?.run;
   if (!state.wind || (run && state.wind.run.slice(0, 13) !== run.slice(0, 13))) {
@@ -594,48 +609,35 @@ function setBoat(id, reload = true) {
   $("#alerts-boat").textContent = boatName();
   $("#alerts-topic").textContent = state.topic ? `${state.topic}-${id}` : "";
   $("#alerts").hidden = !state.topic;
-  const f = $("#relay-form");
-  f.code.value = store.get(`code-${id}`, "");
+  store.del(`code-${id}`);  // ancien code du bateau retenu sur ce téléphone : il ne sert plus
   $("#relay-msg").textContent = "";
+  renderSetup();
   if (!reload) return;
   Object.assign(state, { main: null, safe: null, ens: null, expl: null, route: null });
   fitOnce.done = false;
   refresh().then(() => { if (map && $("#map").clientHeight) fitOnce(); });
 }
 
-// --- envoi de la position sans compte (page publiée → ntfy.sh → routeur) ----------------------
-const normCode = (c) => String(c || "").replace(/\s+/g, "").toLowerCase();
-async function hmacHex(key, text) {
-  const enc = new TextEncoder();
-  const k = await crypto.subtle.importKey("raw", enc.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", k, enc.encode(text)));
-  return [...sig].map((x) => x.toString(16).padStart(2, "0")).join("");
-}
+// --- envoi sans compte (page publiée → ntfy.sh → routeur) ---------------------------------------
 function relayPreview() {
   const f = $("#relay-form"), lat = parseGame(f.lat.value, true), lon = parseGame(f.lon.value, false);
   $("#relay-preview").textContent = f.lat.value && f.lon.value
     ? (Number.isNaN(lat) || Number.isNaN(lon) ? "Position illisible" : `Compris : ${latS(lat)}  ${lonS(lon)}`) : "";
 }
-// Vérifie le code tapé, signe le message et le publie. Renvoie true si l'envoi a réussi.
-async function sendSigned(fields, btn, done) {
-  const f = $("#relay-form"), msg = $("#relay-msg"), boat = state.boats.find((b) => b.id === state.boat);
-  const code = normCode(f.code.value);
-  if (!boat?.check) { msg.textContent = "L'envoi n'est pas encore activé pour ce bateau (code à régler par Keziah)."; return false; }
-  if (!globalThis.crypto?.subtle) { msg.textContent = "Ce navigateur ne permet pas l'envoi (page non sécurisée)."; return false; }
-  if (!code) { msg.textContent = "Tape d'abord le code du bateau."; f.code.focus(); return false; }
-  if ((await hmacHex(code, `routeur-rhum:${boat.id}`)).slice(0, 8) !== boat.check) { msg.textContent = "Code incorrect."; return false; }
+// Publie un message pour le bateau affiché. Renvoie l'heure d'envoi (s), ou 0 si l'envoi a échoué.
+async function sendRelay(fields, btn, msg, what) {
+  if (!state.topic) { msg.textContent = "L'envoi n'est pas disponible sur cette page."; return 0; }
   const t = Date.now() / 1000;
-  const data = JSON.stringify({ bateau: boat.id, ...fields, t });
   btn.disabled = true; msg.textContent = "Envoi…";
   try {
-    const r = await fetch(`https://ntfy.sh/${state.topic}`, { method: "POST", body: JSON.stringify({ data, sig: await hmacHex(code, data) }) });
+    const data = JSON.stringify({ bateau: state.boat, ...fields, t });
+    const r = await fetch(`https://ntfy.sh/${state.topic}`, { method: "POST", body: JSON.stringify({ data }) });
     if (!r.ok) throw new Error(`erreur ${r.status}`);
-    store.set(`code-${boat.id}`, f.keep.checked ? f.code.value : "");
-    store.set(`pending-${boat.id}`, JSON.stringify({ t, what: fields.action ? "Recalcul demandé" : "Position envoyée" }));
-    msg.textContent = `${done} Nouvelle route dans 5 à 15 min : la page se met à jour toute seule.`;
+    store.set(`pending-${state.boat}`, JSON.stringify({ t, what }));
+    msg.textContent = "";
     renderTodo();
-    return true;
-  } catch (err) { msg.textContent = `Envoi impossible (${err.message}). Vérifie la connexion et réessaie.`; return false; }
+    return t;
+  } catch (err) { msg.textContent = `Envoi impossible (${err.message}). Vérifie la connexion et réessaie.`; return 0; }
   finally { btn.disabled = false; }
 }
 async function sendPosition(e) {
@@ -644,11 +646,69 @@ async function sendPosition(e) {
   const msg = $("#relay-msg");
   if (Number.isNaN(lat) || Number.isNaN(lon)) { msg.textContent = "Latitude ou longitude illisible."; return; }
   if (lat < 5 || lat > 55 || lon < -70 || lon > 5) { msg.textContent = "Cette position est hors du parcours : vérifie N/S et E/W."; return; }
-  const ok = await sendSigned({ lat, lon, voile: f.sail.value, porte: +f.gate.value, twa: f.twa.value.trim() },
-    f.querySelector("button[type=submit]"), `Position ${latS(lat)} ${lonS(lon)} envoyée.`);
-  if (ok) { f.lat.value = ""; f.lon.value = ""; f.twa.value = ""; relayPreview(); }
+  const ok = await sendRelay({ lat, lon, voile: f.sail.value, porte: +f.gate.value, twa: f.twa.value.trim() },
+    f.querySelector("button[type=submit]"), msg, "Position envoyée");
+  if (!ok) return;
+  msg.textContent = `Position ${latS(lat)} ${lonS(lon)} envoyée. ${SOON}`;
+  f.lat.value = ""; f.lon.value = ""; f.twa.value = ""; relayPreview();
 }
-const askRecalc = (e) => sendSigned({ action: "recalcul" }, e.currentTarget, "Recalcul demandé.");
+const SOON = "Nouvelle route dans 5 à 15 min : la page se met à jour toute seule.";
+async function askRecalc(e) {
+  if (await sendRelay({ action: "recalcul" }, e.currentTarget, $("#relay-msg"), "Recalcul demandé"))
+    $("#relay-msg").textContent = `Recalcul demandé. ${SOON}`;
+}
+
+// --- options du bateau : obligatoires avant le reste, le routeur calcule toute la route avec -------
+const curBoat = () => state.boats.find((b) => b.id === state.boat);
+// Options envoyées depuis ce téléphone que le routeur n'a pas encore publiées dans boats.json.
+function sentOpts() {
+  try { return JSON.parse(store.get(`opts-${state.boat}`, "") || "null"); } catch { return null; }
+}
+function chosenOpts() {
+  const b = curBoat(), sent = sentOpts();
+  return sent ? sent.options : b?.options_set ? b.options : null;
+}
+const sameOpts = (a, b) => !!a && !!b && OPTIONS.every(([k]) => !!a[k] === !!b[k]);
+const optsSummary = (o) => OPTIONS.filter(([k]) => o[k]).map(([, n]) => n).join(", ") || "Aucune option : bateau de base.";
+let setupOpen = false;  // écran rouvert par « Modifier mes options »
+function renderSetup() {
+  const b = curBoat(), chosen = chosenOpts();
+  const gate = !!state.topic && !!b && (setupOpen || !chosen);
+  const was = document.body.classList.contains("gated");
+  document.body.classList.toggle("gated", gate);
+  $("#setup-boat").textContent = state.boats.length > 1 ? boatName() : "ton bateau";
+  $("#setup-cancel").hidden = !chosen;
+  $("#opts-card").hidden = !b || !state.topic;
+  $("#opts-boat").textContent = boatName();
+  $("#opts-sum").textContent = chosen ? optsSummary(chosen) : "Pas encore choisies.";
+  if (gate && !was) {  // cases remplies à l'ouverture seulement, pas pendant qu'on coche
+    const cur = chosen || {};
+    $("#setup-list").innerHTML = OPTIONS.map(([k, name, help]) => `<label class="opt switch"><span><b>${name}</b><small>${help}</small></span>
+      <input type="checkbox" name="${k}" ${cur[k] ? "checked" : ""}></label>`).join("");
+    $("#setup-msg").textContent = "";
+    setupCount();
+  }
+}
+function setupCount() {
+  const n = OPTIONS.filter(([k]) => $("#setup-form")[k]?.checked).length;
+  $("#setup-ok").textContent = n === OPTIONS.length ? "Valider : pack complet"
+    : n ? `Valider : ${n} option${n > 1 ? "s" : ""}` : "Valider : aucune option";
+}
+async function sendOptions(e) {
+  e.preventDefault();
+  const f = e.target, options = Object.fromEntries(OPTIONS.map(([k]) => [k, f[k].checked]));
+  const t = await sendRelay({ action: "options", options }, $("#setup-ok"), $("#setup-msg"), "Options envoyées");
+  if (!t) return;
+  store.set(`opts-${state.boat}`, JSON.stringify({ t, options }));
+  setupOpen = false; renderSetup(); showTab("bord");
+  toast("Options envoyées : nouvelle route dans 5 à 15 min");
+}
+// boats.json à jour (le routeur a reçu les options) : celles gardées sur le téléphone ne servent plus.
+function checkSentOpts() {
+  const b = curBoat(), sent = sentOpts();
+  if (sent && b?.options_set && (sameOpts(b.options, sent.options) || ts(state.main?.computed_at) / 1000 > sent.t + 60))
+    store.del(`opts-${state.boat}`);
+}
 // Position envoyée mais pas encore prise en compte ? (effacée dès qu'une route plus récente est publiée)
 function pending() {
   try { return JSON.parse(store.get(`pending-${state.boat}`, "") || "null"); } catch { return null; }
@@ -683,6 +743,11 @@ function initUi() {
   $("#relay-recalc").onclick = askRecalc;
   $("#alerts-copy").onclick = () => copyText($("#alerts-topic").textContent);
   $("#relay-form").oninput = relayPreview;
+  $("#setup-form").onsubmit = sendOptions;
+  $("#setup-form").onchange = setupCount;
+  $("#setup-all").onclick = () => { OPTIONS.forEach(([k]) => ($("#setup-form")[k].checked = true)); setupCount(); };
+  $("#setup-cancel").onclick = () => { setupOpen = false; renderSetup(); };
+  $("#opts-edit").onclick = () => { setupOpen = true; renderSetup(); };
   document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
   document.body.addEventListener("click", (e) => {
     const c = e.target.closest("[data-copy]"); if (c) copyText(c.dataset.copy);

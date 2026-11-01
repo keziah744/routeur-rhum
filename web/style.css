@@ -258,6 +258,21 @@ input[type=range] { width: 100%; margin: 0; accent-color: var(--acc); height: 28
   opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s cubic-bezier(.2, .8, .2, 1); z-index: 1100; box-shadow: 0 6px 20px rgb(0 0 0 / .4); }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* Options du bateau : écran à remplir avant le reste */
+.setup { display: none; height: 100%; overflow-y: auto; padding: 22px 16px calc(32px + env(safe-area-inset-bottom)); }
+body.gated .setup { display: block; animation: enter .18s cubic-bezier(.2, .8, .2, 1); }
+body.gated .tab, body.gated .tabs, body.gated #tab-carte { display: none !important; }
+.setup > * { max-width: 560px; }
+.setup > * + * { margin-top: 12px; }
+.setup .page-h { font-size: 22px; }
+.opts { display: grid; gap: 14px; margin-top: 20px; }
+.opt-list { background: var(--panel); border-radius: var(--r); padding: 0 16px; }
+.opt { display: flex; justify-content: space-between; width: 100%; min-height: 64px; padding: 10px 0; gap: 16px; color: var(--ink); font-size: 15.5px; }
+.opt + .opt { border-top: 1px solid var(--line); }
+.opt b { display: block; }
+.opt small { display: block; color: var(--mute); font-size: 13px; margin-top: 2px; }
+.opt input { flex: none; }
+
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
 @media (min-width: 900px) {
@@ -271,5 +286,7 @@ input[type=range] { width: 100%; margin: 0; accent-color: var(--acc); height: 28
   .tabs { position: static; grid-column: 1; grid-row: 3; height: 64px; padding: 0; grid-template-columns: repeat(3, 1fr); }
   .tabs button[data-tab=carte] { display: none; }
   .mapbar { padding-bottom: 12px; }
+  .setup { grid-column: 1 / -1; grid-row: 2 / span 2; padding: 40px 22px; }
+  .setup > * { margin-inline: auto; }
   #toast { bottom: 84px; left: 230px; }
 }

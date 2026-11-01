@@ -121,6 +121,7 @@ def main(argv=None) -> int:
             updated = relay(cfg, svc.polar.sail_names)
             if updated:
                 flag.write_text(",".join(updated), encoding="utf-8")  # signal pour GitHub Actions : publier
+                svc = Service(cfg, args.bateau)  # options peut-être changées : relues, et boats.json réécrit
                 print(json.dumps(svc.cycle(force_route=True, boats=updated), indent=1, ensure_ascii=False))
             else:
                 print("aucune nouvelle position")
