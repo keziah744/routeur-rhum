@@ -1649,6 +1649,115 @@
      ]
     ]
    }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Danger Les Héaux - Bréhat (roches)",
+    "kind": "forbidden",
+    "source": "Ajout 01/11/2026 : le jeu bloque le bateau sur ces roches (Keziah, cap 292 après Fréhel) ; absentes du trait de côte GSHHG"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -3.16,
+       48.86
+      ],
+      [
+       -3.16,
+       48.94
+      ],
+      [
+       -3.04,
+       48.94
+      ],
+      [
+       -2.97,
+       48.9
+      ],
+      [
+       -2.97,
+       48.86
+      ],
+      [
+       -3.16,
+       48.86
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Danger plateau de Barnouic",
+    "kind": "forbidden",
+    "source": "Ajout 01/11/2026 : le jeu bloque le bateau sur ces roches (Keziah, cap 292 après Fréhel) ; absentes du trait de côte GSHHG"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.86,
+       49.0
+      ],
+      [
+       -2.86,
+       49.04
+      ],
+      [
+       -2.78,
+       49.04
+      ],
+      [
+       -2.78,
+       49.0
+      ],
+      [
+       -2.86,
+       49.0
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Danger Roches Douvres",
+    "kind": "forbidden",
+    "source": "Ajout 01/11/2026 : le jeu bloque le bateau sur ces roches (Keziah, cap 292 après Fréhel) ; absentes du trait de côte GSHHG"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -2.84,
+       49.09
+      ],
+      [
+       -2.84,
+       49.125
+      ],
+      [
+       -2.79,
+       49.125
+      ],
+      [
+       -2.79,
+       49.09
+      ],
+      [
+       -2.84,
+       49.09
+      ]
+     ]
+    ]
+   }
   }
  ]
 }
