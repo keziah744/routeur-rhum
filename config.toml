@@ -90,6 +90,9 @@ sector_nm = 8.0
 # Horizon d'engagement : chaque route candidate est suivie ce temps-là dans chaque scénario, puis on suppose
 # un recalcul (le jeu se recale toutes les 6 h ; 48 h = la décision qui compte vraiment).
 commit_h = 48.0
+# Heures où chaque scénario suit le GFS (le vent du jeu) avant de prendre la main : le jeu ne charge un nouveau
+# GFS que ~6 h plus tard, la route conseillée doit donc rester jouable sur ces heures-là.
+gfs_first_h = 6.0
 
 [explain]
 # Explication de la route en français par Claude. Clé : variable d'environnement ANTHROPIC_API_KEY

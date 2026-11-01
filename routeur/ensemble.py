@@ -25,7 +25,7 @@ from .roadmap import build_roadmap, iso, route_document
 from .course import Course
 from .geo import haversine_nm, rhumb_bearing_distance, rhumb_destination
 from .polar import Polar
-from .wind import MS_TO_KT, WindField
+from .wind import MS_TO_KT, SwitchedWind, WindField
 
 log = logging.getLogger("routeur.ensemble")
 
@@ -285,10 +285,21 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
     names = sorted(members)
     cands, results = [], {}
     clock = time.time()
+    # Les premières heures, le jeu navigue dans le GFS (connu) : chaque scénario ne prend la main qu'ensuite.
+    # Sinon la route conseillée donne des caps et des TWA calculés dans un vent que le bateau n'a pas (01/11 :
+    # cap 272 à TWA 134 au lieu de 125, TWA verrouillée qui menait à la côte avant Fréhel).
+    cur = svc.store.current()
+    gfs = None
+    if cur:
+        gfs, _ = svc.game_wind(WindField.load(cur["path"]), cur)
+    near_s = float(cfg["ensemble"].get("gfs_first_h", 6.0)) * 3600
+    switch_t = max(t0, time.time()) + near_s
     for n, m in enumerate(names):
         if progress:
             progress(f"Route du scénario {n + 1}/{len(names)}", n, len(names))
         w = WindField.load(members[m])
+        if gfs is not None and near_s > 0:
+            w = SwitchedWind(gfs, w, switch_t)
         res = None
         # Réglages grossiers d'abord ; si le front se bloque, second essai avec les réglages fins de la route GFS.
         for attempt, prm in enumerate((params, fine)):

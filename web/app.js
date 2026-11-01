@@ -18,7 +18,7 @@ const OPTIONS = [
   ["reach_sail", "Code 0", "Pour le vent de travers"],
 ];
 const $ = (s) => document.querySelector(s);
-const state = { route: null, main: null, safe: null, ens: null, ensSt: null, choice: "safe",
+const state = { route: null, main: null, safe: null, ens: null, ensSt: null, choice: "gfs",
   status: null, wx: null, wind: null, api: false, fmt: "dms", slider: 0, boats: [], boat: null, topic: null };
 const store = {
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
@@ -808,9 +808,10 @@ const renderAll = () => { renderTodo(); renderNotes(); renderScenarios(); render
 
 function initUi() {
   state.fmt = store.get("fmt", "dms");
-  state.choice = store.get("choice", "safe");
+  // Route GFS par défaut (01/11) : la route conseillée suivait le vent d'un scénario dès le départ.
+  state.choice = store.get("choix-route", "gfs");
   document.querySelectorAll(".choice button").forEach((b) => (b.onclick = () => {
-    state.choice = b.dataset.c; store.set("choice", state.choice); pickRoute();
+    state.choice = b.dataset.c; store.set("choix-route", state.choice); pickRoute();
     renderAll(); if (map) { drawRoute(); drawBoat(); }
   }));
   const sel = $("#fmt");
