@@ -514,8 +514,19 @@ function fillForm() {
   const R = state.route; if (!R) return;
   for (const f of [$("#pos-form"), $("#relay-form")]) {
     f.sail.innerHTML = `<option value="">je ne sais pas</option>` + R.sail_names.map((s) => `<option value="${s}">${sailFr(s)}</option>`).join("");
-    f.gate.innerHTML = R.gates.map((g, k) => `<option value="${k}" ${k === 1 ? "selected" : ""}>${g.name}</option>`).join("");
+    f.gate.innerHTML = R.gates.map((g, k) => `<option value="${k}">${g.name}</option>`).join("");
+    f.gate.onchange = () => (f.gate.dataset.touched = "1");
   }
+  nextGate();
+}
+// Prochaine marque proposée : la première que la route n'a pas encore passée (Porte Fréhel juste après le départ),
+// sauf si on l'a changée à la main.
+function nextGate() {
+  const R = state.route; if (!R?.gates) return;
+  const passed = (g) => R.waypoints.some((w) => w.reason === `Porte : ${g.name}` && ts(w.t) <= Date.now());
+  const k = R.gates.findIndex((g) => !passed(g));
+  for (const f of [$("#pos-form"), $("#relay-form")])
+    if (!f.gate.dataset.touched && f.gate.options.length) f.gate.value = String(k < 0 ? R.gates.length - 1 : k);
 }
 async function post(path, body) {
   const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
@@ -593,7 +604,7 @@ async function refresh() {
   }
   renderStatus(); renderAll(); renderMeteo();
   if (map) { drawRoute(); drawWind(); drawBoat(); }
-  if (state.route && !fillForm.done) { fillForm(); fillForm.done = true; }
+  if (state.route && !fillForm.done) { fillForm(); fillForm.done = true; } else nextGate();
 }
 
 // --- bateaux ----------------------------------------------------------------------------------
