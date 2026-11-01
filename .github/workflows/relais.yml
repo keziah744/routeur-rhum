@@ -150,6 +150,11 @@ jobs:
             web/data/bateaux/*/explain.json
             data/positions
           key: route-${{ github.run_id }}-${{ github.run_attempt }}
+      # Position reçue : les scénarios repartent tout de suite de là, sans attendre h:35.
+      - if: hashFiles('data/.relais-nouveau') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ensemble.yml --repo "$GITHUB_REPOSITORY"
       - if: hashFiles('data/.relais-nouveau') != ''
         uses: actions/configure-pages@v5
       - if: hashFiles('data/.relais-nouveau') != ''

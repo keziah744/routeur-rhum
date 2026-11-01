@@ -674,7 +674,7 @@ function verdict() {
   if (S.guard && !S.guard.ok) return gfs(`la route conseillée ${failed}`);
   const lp = M.last_position;
   if (lp && ts(lp.time) > ts(S.start_time) + 10 * 60e3)
-    return gfs(`la route conseillée part de ta position de ${hm(S.start_time)}, d'avant ta dernière position. Elle sera recalculée dans l'heure.`);
+    return gfs(`la route conseillée part de ta position de ${hm(S.start_time)}, d'avant ta dernière position. Elle est en train d'être recalculée, compte une demi-heure.`);
   const g = e.gain_vs_gfs_h ?? 0;
   if (g < MIN_GAIN_H) return gfs(`la route conseillée ne gagne que ${Math.max(0, Math.round(g * 60))} min, pas assez pour changer.`);
   return safe(`elle arrive ${fr1(g)} h plus tôt que la route GFS en moyenne sur ${e.judges} versions de la météo, et ses ordres passent le contrôle.`);
@@ -830,7 +830,7 @@ function twaInput(e) {
   t.value = t.value.trim().slice(1);
   t.form.querySelector('input[name=side][value="-1"]').checked = true;
 }
-const SOON = "Nouvelle route dans 5 à 15 min : la page se met à jour toute seule.";
+const SOON = "Nouvelle route dans 5 à 15 min, route conseillée dans 30 à 40 min : la page se met à jour toute seule.";
 async function askRecalc(e) {
   if (await sendRelay({ action: "recalcul" }, e.currentTarget, $("#relay-msg"), "Recalcul demandé"))
     $("#relay-msg").textContent = `Recalcul demandé. ${SOON}`;

@@ -12,6 +12,7 @@ on:
         default: false
 
 permissions:
+  actions: write
   contents: read
   pages: write
   id-token: write
@@ -119,6 +120,11 @@ jobs:
             web/data/bateaux/*/explain.json
             data/positions
           key: route-${{ github.run_id }}-${{ github.run_attempt }}
+      # Position relevée ici (le relais avait sauté un passage) : scénarios relancés tout de suite, sans attendre h:35.
+      - if: hashFiles('data/.relais-nouveau') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ensemble.yml --repo "$GITHUB_REPOSITORY"
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -27,6 +27,7 @@ on:
         options: ["1 - Îlot Tête à l'Anglais", "2 - Bouée Basse-Terre", "3 - Les Saintes", "4 - Bouée d'atterrissage PP", "5 - Arrivée"]
 
 permissions:
+  actions: write
   contents: read
   pages: write
   id-token: write
@@ -110,6 +111,10 @@ jobs:
             web/data/bateaux/*/explain.json
             data/positions
           key: route-${{ github.run_id }}-${{ github.run_attempt }}
+      # Nouvelle position : les scénarios repartent tout de suite de là, sans attendre h:35.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ensemble.yml --repo "$GITHUB_REPOSITORY"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
