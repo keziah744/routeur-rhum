@@ -267,7 +267,8 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
     t0 = datetime.fromisoformat(main["start_time"].replace("Z", "+00:00")).timestamp()
     start = (main["start"]["lat"], main["start"]["lon"])
     gate0 = int(main.get("start_gate", 0))
-    cut = 1                                     # porte où s'arrête la comparaison
+    # Porte où s'arrête la comparaison : Tête à l'Anglais (la première porte de Guadeloupe).
+    cut = next((k for k, g in enumerate(course.gates) if "Anglais" in g.name), 1)
     if gate0 > cut:
         raise RuntimeError("fin de course : la porte stratégique est passée, scénarios inutiles")
     cut_name = f"Porte : {course.gates[cut].name}"

@@ -56,7 +56,9 @@ class Course:
     @classmethod
     def load(cls, path: str | Path) -> "Course":
         d = json.loads(Path(path).read_text(encoding="utf-8"))
-        gates = [Gate(g["name"], tuple(g["a"]), tuple(g["b"]), g.get("cross", "any")) for g in d.get("gates", [])]
+        # « in_game": false : porte du vrai règlement que le jeu ne demande pas (Fréhel, 01/11/2026).
+        gates = [Gate(g["name"], tuple(g["a"]), tuple(g["b"]), g.get("cross", "any")) for g in d.get("gates", [])
+                 if g.get("in_game", True)]
         f = d["finish"]
         gates.append(Gate(f.get("name", "Arrivée"), tuple(f["a"]), tuple(f["b"]), f.get("cross", "any")))
         t = datetime.fromisoformat(d["start"]["time_utc"].replace("Z", "+00:00")).timestamp()
