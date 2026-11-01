@@ -90,7 +90,9 @@ const lockS = (w) => (w.order?.mode === "twa" ? `<span class="lock on">${ico("lo
   : `<span class="lock">${ico("unlock")}cadenas ouvert</span>`);
 const orderS = (w) => (w.order?.mode === "twa" ? `TWA <b>${twaS(w.order.value)}</b>` : `Cap <b>${deg(w.heading)}</b>`);
 const orderTxt = (w) => (w.order?.mode === "twa" ? `TWA ${twaS(w.order.value)}` : `Cap ${deg(w.heading)}`);
-const orderWhy = (w) => (w.order?.mode === "twa" ? `Le vent tourne de ${w.order.spread_cap}° sur ce segment : programme une TWA fixe.`
+const orderWhy = (w) => (w.order?.unsafe ? `<b class="bad">Ne programme pas cet ordre : rejoué dans la météo du jeu, il mène dans une zone interdite ou à la côte. Renvoie ta position.</b>`
+  : w.order?.guard === "twa" ? "Cap fixe : la TWA verrouillée menait dans une zone interdite."
+  : w.order?.mode === "twa" ? `Le vent tourne de ${w.order.spread_cap}° sur ce segment : programme une TWA fixe.`
   : w.order?.spread_twa >= 10 ? `Cap fixe : l'angle au vent varie de ${w.order.spread_twa}° sur ce segment.` : "");
 
 function parseCoord(txt, isLat) {
@@ -325,11 +327,11 @@ function renderTodo() {
 
 // Lignes courtes sous la frise : quelle route est affichée, et ce qui a changé au dernier calcul.
 function renderNotes() {
-  const R = state.route, e = state.ens, C = R?.comparison;
-  $("#choice-cap").innerHTML = !R || !e ? ""
-    : state.route === state.safe ? `La plus sûre sur ${e.judges} versions de la météo.`
-    : e.recommended === "gfs" ? `Route GFS, qui est aussi la plus sûre sur ${e.judges} versions de la météo.`
-    : `<span class="warn">Une seule météo (GFS). La route conseillée est différente.</span>`;
+  const R = state.route, C = R?.comparison, v = verdict();
+  const shown = state.route && state.route === state.safe ? "safe" : "gfs";
+  const vh = !v ? "" : `<b>Suis la route ${v.id === "safe" ? "conseillée" : "GFS"}</b> : ${v.why}`
+    + (v.id !== shown ? ` <button class="link" type="button" data-follow>Afficher cette route</button>` : "");
+  document.querySelectorAll(".verdict").forEach((el) => (el.innerHTML = vh));
   let ch = "";
   if (C && C.eta_delta_h != null) {
     const d = C.eta_delta_h, same = Math.abs(d) < 0.5 && (C.mean_deviation_nm ?? 0) < 5;
@@ -368,7 +370,7 @@ function renderRoute() {
         <span class="note">· +${String(c.gain_pct).replace(".", ",")} % · vent ${c.tws} kt</span></div></li>`;
       const changed = prev.length && !prev.some(([a, b]) => hav(a, b, w.lat, w.lon) < 10);
       return `<li class="${past}">${when(w.t)}<div class="body">
-        <p class="act"><span class="n">WP${pad(w.n)}</span><span>${orderS(w)}</span>${lockS(w)}<span class="sail">${swatch(w.sail)}${sailLabel(w.sail)}</span>${changed ? '<span class="badge warn">modifié</span>' : ""}${w.beyond_forecast ? '<span class="badge warn">hors prévision</span>' : ""}</p>
+        <p class="act"><span class="n">WP${pad(w.n)}</span><span>${orderS(w)}</span>${lockS(w)}<span class="sail">${swatch(w.sail)}${sailLabel(w.sail)}</span>${changed ? '<span class="badge warn">modifié</span>' : ""}${w.beyond_forecast ? '<span class="badge warn">hors prévision</span>' : ""}${w.order?.unsafe ? '<span class="badge bad">danger</span>' : ""}</p>
         ${coordsHtml(w, false)}
         <p class="m"><span>TWA <b>${twaS(w.twa)}</b></span><span>vent <b>${deg(w.twd)} · ${w.tws.toFixed(0)} kt</b></span><span><b>${fr1(w.speed)} kt</b> prévus</span><span>${fmtZ(w.t)}</span></p>
         <p class="why">${[w.reason, orderWhy(w)].filter(Boolean).join(" · ")}</p></div></li>`;
@@ -659,9 +661,27 @@ async function pollJob() {
 }
 
 // --- scénarios météo ---------------------------------------------------------------------------
+// Quelle route suivre : une seule réponse avec sa raison, au lieu de comparer deux routes à la main (01/11).
+const MIN_GAIN_H = 1;   // en dessous, l'écart entre les deux routes ne dépasse pas l'imprécision du calcul
+function verdict() {
+  const M = state.main, S = state.safe, e = state.ens;
+  if (!M) return null;
+  const gfs = (why) => ({ id: "gfs", why }), safe = (why) => ({ id: "safe", why });
+  const failed = "échoue au contrôle : un de ses ordres, rejoué dans la météo du jeu, mène dans une zone interdite ou à la côte.";
+  if (M.guard && !M.guard.ok && S && S.guard?.ok) return safe(`la route GFS ${failed}`);
+  if (!e) return gfs("les scénarios météo ne sont pas encore calculés.");
+  if (e.recommended === "gfs" || !S) return gfs(`c'est aussi la meilleure sur les ${e.judges} versions de la météo.`);
+  if (S.guard && !S.guard.ok) return gfs(`la route conseillée ${failed}`);
+  const lp = M.last_position;
+  if (lp && ts(lp.time) > ts(S.start_time) + 10 * 60e3)
+    return gfs(`la route conseillée part de ta position de ${hm(S.start_time)}, d'avant ta dernière position. Elle sera recalculée dans l'heure.`);
+  const g = e.gain_vs_gfs_h ?? 0;
+  if (g < MIN_GAIN_H) return gfs(`la route conseillée ne gagne que ${Math.max(0, Math.round(g * 60))} min, pas assez pour changer.`);
+  return safe(`elle arrive ${fr1(g)} h plus tôt que la route GFS en moyenne sur ${e.judges} versions de la météo, et ses ordres passent le contrôle.`);
+}
 function pickRoute() {
-  // Route affichée partout : la conseillée (scénarios) par défaut, sinon la route GFS.
-  const useSafe = state.choice === "safe" && state.safe;
+  // Route affichée partout : celle du verdict, sauf si un bouton a été touché pendant cette visite.
+  const useSafe = (state.choice || verdict()?.id) === "safe" && state.safe;
   state.route = useSafe ? state.safe : state.main;
   document.querySelectorAll(".choice button").forEach((b) => b.classList.toggle("on", b.dataset.c === (useSafe ? "safe" : "gfs")));
   document.querySelectorAll(".choice").forEach((el) => (el.hidden = !state.safe));
@@ -919,12 +939,10 @@ const renderAll = () => { renderTodo(); renderNotes(); renderScenarios(); render
 
 function initUi() {
   state.fmt = store.get("fmt", "dms");
-  // Route GFS par défaut (01/11) : la route conseillée suivait le vent d'un scénario dès le départ.
-  state.choice = store.get("choix-route", "gfs");
-  document.querySelectorAll(".choice button").forEach((b) => (b.onclick = () => {
-    state.choice = b.dataset.c; store.set("choix-route", state.choice); pickRoute();
-    renderAll(); if (map) { drawRoute(); drawBoat(); }
-  }));
+  // Route affichée = verdict ; un bouton la change pour cette visite seulement.
+  state.choice = null;
+  const choose = (c) => { state.choice = c; pickRoute(); renderAll(); if (map) { drawRoute(); drawBoat(); } };
+  document.querySelectorAll(".choice button").forEach((b) => (b.onclick = () => choose(b.dataset.c)));
   const sel = $("#fmt");
   sel.value = state.fmt;
   sel.onchange = () => { state.fmt = sel.value; store.set("fmt", state.fmt); renderRoute(); renderBord(); };
@@ -943,6 +961,7 @@ function initUi() {
   document.body.addEventListener("click", (e) => {
     const c = e.target.closest("[data-copy]"); if (c) copyText(c.dataset.copy);
     const g = e.target.closest("[data-go]"); if (g) showTab(g.dataset.go);
+    if (e.target.closest("[data-follow]")) choose(null);
   });
   $("#btn-recalc").onclick = async () => { try { const j = await post("/api/recalcul"); toast(j.accepted ? "Recalcul lancé" : "Un calcul est déjà en cours"); pollJob(); } catch (err) { toast(err.message); } };
   $("#pos-form").onsubmit = async (e) => {

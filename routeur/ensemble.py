@@ -21,7 +21,7 @@ import numpy as np
 from .config import resolve
 from .gfs import Cycle, FetchError, GfsStore, gefs_member, listing, recent_cycles, with_retries
 from .isochrones import Router, RoutingParams
-from .roadmap import build_roadmap, iso, route_document
+from .roadmap import build_roadmap, guard_orders, iso, route_document
 from .course import Course
 from .geo import haversine_nm, rhumb_bearing_distance, rhumb_destination
 from .polar import Polar
@@ -364,10 +364,10 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
     # Une route qui n'arrive pas dans tous les scénarios est écartée si une autre y arrive.
     full = [c for c in out_c if c["arrived_in"] == len(judges)] or out_c
     rec = min(full, key=lambda c: (c["_median"], c["_p90"]))
-    gfs = out_c[0]
+    gfs_c = out_c[0]
     own = np.array([c["own_eta"] for c in cands[1:]])
     spread_h = float((np.percentile(own, 90) - np.percentile(own, 10)) / 3600) if own.size > 2 else None
-    gain_h = (gfs["_median"] - rec["_median"]) / 3600 if np.isfinite(gfs["_median"]) else None
+    gain_h = (gfs_c["_median"] - rec["_median"]) / 3600 if np.isfinite(gfs_c["_median"]) else None
     doc = {"format": "routeur-rhum/ensemble@1", "computed_at": iso(time.time()), "gefs_cycle": gefs_cycle,
            "gfs_cycle": main.get("gfs_cycle"), "scenarios": len(names), "routes_found": len(cands) - 1,
            "compared_until": course.gates[cut].name, "guadeloupe_tour_h": round(tour_s / 3600, 1),
@@ -380,7 +380,12 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
            "candidates": [{k: v for k, v in c.items() if not k.startswith("_")} for c in out_c]}
     safe = svc.bout / "route-safe.json"
     if rec["id"] != "gfs":
-        write_json(safe, safe_document(main, results[rec["id"]], i_cut, rec["id"], gefs_cycle, members[rec["id"]]))
+        sdoc = safe_document(main, results[rec["id"]], i_cut, rec["id"], gefs_cycle, members[rec["id"]])
+        # Ordres rejoués dans le vent du jeu (GFS), pas dans celui du scénario.
+        if gfs is not None:
+            g = guard_orders(sdoc, gfs, polar, mask, cfg["routing"].get("guard_h", 24.0))
+            doc["safe_guard"] = {k: g[k] for k in ("ok", "hit", "twa_to_cap")}
+        write_json(safe, sdoc)
     elif safe.exists():
         safe.unlink()
     write_json(svc.bout / "ensemble.json", doc)

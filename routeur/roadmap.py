@@ -335,3 +335,62 @@ def to_gpx(doc: dict) -> str:
     return ('<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="routeur-rhum" '
             'xmlns="http://www.topografix.com/GPX/1/1">\n  <rte><name>Route du Rhum - Ultim</name>\n'
             f'{rows}\n  </rte>\n</gpx>\n')
+
+
+def _ts(s: str) -> float:
+    return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+
+
+def replay_orders(wps: list[dict], wind, polar: Polar, mask: LandMask, horizon_h: float = 24.0,
+                  dt_s: float = 300.0) -> dict:
+    """Rejoue les ordres publiés comme le programmateur du jeu : chaque ordre (cap fixe ou TWA verrouillée)
+    s'applique de l'heure de son waypoint à celle du suivant, sans recaler le bateau sur les waypoints.
+
+    Renvoie le premier obstacle touché (terre ou zone interdite, marges comprises) et l'écart entre le bateau
+    rejoué et chaque waypoint à son heure.
+    """
+    lat, lon = float(wps[0]["lat"]), float(wps[0]["lon"])
+    t_end = _ts(wps[0]["t"]) + horizon_h * 3600
+    drifts = []
+    for i, (a, b) in enumerate(zip(wps, wps[1:])):
+        t, t1 = _ts(a["t"]), min(_ts(b["t"]), t_end)
+        o = a.get("order") or {"mode": "cap", "value": a["heading"]}
+        while t < t1 - 1:
+            step = min(dt_s, t1 - t)
+            twd, tws = (float(x[0]) for x in wind.wind(np.array([lat]), np.array([lon]), t))
+            head = (twd - o["value"]) % 360 if o["mode"] == "twa" else float(o["value"])
+            twa = (twd - head + 180) % 360 - 180
+            v = float(polar.best([abs(twa)], [tws])[0][0])
+            nlat, nlon = (float(x) for x in rhumb_destination(lat, lon, head, v * step / 3600))
+            if not mask.segments_clear(np.array([lat]), np.array([lon]), np.array([nlat]), np.array([nlon]))[0]:
+                return {"hit": {"wp": i, "n": a["n"], "t": iso(t), "lat": round(lat, 4), "lon": round(lon, 4)},
+                        "drifts": drifts}
+            lat, lon, t = nlat, nlon, t + step
+        if _ts(b["t"]) > t_end:
+            break
+        drifts.append(round(float(haversine_nm(lat, lon, float(b["lat"]), float(b["lon"]))), 1))
+    return {"hit": None, "drifts": drifts}
+
+
+def guard_orders(doc: dict, wind, polar: Polar, mask: LandMask, horizon_h: float = 24.0) -> dict:
+    """Garde-fou avant publication : les ordres des `horizon_h` prochaines heures, rejoués dans le vent du jeu,
+    ne doivent toucher ni terre ni zone interdite (01/11 : TWA verrouillée vers les Héaux, éolien frôlé).
+
+    Une TWA qui y mène est remplacée par le cap du waypoint ; si un cap y mène, la route est marquée dangereuse
+    à partir de cet ordre (doc["guard"]["ok"] = False) pour que la page le dise.
+    """
+    wps = doc["waypoints"]
+    fixed = []
+    for _ in range(len(wps)):
+        rep = replay_orders(wps, wind, polar, mask, horizon_h)
+        hit = rep["hit"]
+        if hit is None or wps[hit["wp"]]["order"]["mode"] != "twa":
+            break
+        w = wps[hit["wp"]]
+        w["order"] = {**w["order"], "mode": "cap", "value": round(w["heading"]) % 360, "guard": "twa"}
+        fixed.append(w["n"])
+    if hit is not None:
+        wps[hit["wp"]]["order"]["unsafe"] = True
+    doc["guard"] = {"ok": hit is None, "horizon_h": horizon_h, "hit": hit, "twa_to_cap": fixed,
+                    "max_drift_nm": max(rep["drifts"], default=0.0), "checked_at": iso(datetime.now(timezone.utc).timestamp())}
+    return doc["guard"]

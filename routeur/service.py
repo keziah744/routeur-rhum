@@ -26,7 +26,7 @@ from .geo import LandMask
 from .gfs import GfsStore
 from .isochrones import Router, RoutingParams
 from .polar import Polar
-from .roadmap import build_roadmap, check_legs, compare, iso, route_document, to_csv, to_gpx
+from .roadmap import build_roadmap, check_legs, compare, guard_orders, iso, route_document, to_csv, to_gpx
 from .wind import SwitchedWind, WindField
 
 log = logging.getLogger("routeur.service")
@@ -317,6 +317,9 @@ class Service:
                 "gates": [{"name": g.name, "a": g.a, "b": g.b, "cross": g.cross} for g in self.course.gates]}
         doc = route_document(res, rm, meta, check)
         doc["gates_passed_track"] = [p.gate for p in res.points]
+        g = guard_orders(doc, wind, self.polar, self.mask, self.cfg["routing"].get("guard_h", 24.0))
+        if not g["ok"] or g["twa_to_cap"]:
+            log.warning("[%s] garde-fou : %s", self.boat, g)
         self.publish_route(doc)
         log.info("[%s] route calculée : arrivée %s, %d waypoints, %d changements de voile, %.0f s", self.boat,
                  doc["eta"], len(doc["waypoints"]), len(doc["sail_changes"]), res.stats["compute_s"])

@@ -100,6 +100,11 @@ main { flex: 1; min-height: 0; position: relative; }
 .choice button { background: none; color: var(--mute); border: 0; border-radius: 9px; min-height: 40px; font: 600 14px var(--sans); cursor: pointer; transition: background .15s, color .15s; }
 .choice button.on { background: var(--acc); color: var(--acc-ink); }
 .choice-cap { color: var(--mute); font-size: 13px; margin-top: 8px !important; padding-left: 4px; }
+.verdict { color: var(--ink); font-size: 14.5px; line-height: 1.45; padding: 10px 12px; margin-top: 10px !important;
+  background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--acc); border-radius: 10px; }
+.verdict b { color: var(--acc); }
+.verdict .link { font-size: 14px; padding: 0; margin-left: 2px; }
+.badge.bad, b.bad { color: var(--bad); }
 
 /* À faire */
 .todos { display: grid; gap: 8px; }

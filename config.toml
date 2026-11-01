@@ -67,6 +67,8 @@ sector_deg = 0.5
 sector_nm = 4.0
 # Durée maximale de calcul de route (h de navigation simulée).
 max_duration_h = 400
+# Garde-fou : heures d'ordres rejouées dans le vent du jeu avant publication (terre et zones interdites).
+guard_h = 24
 # Gain minimal (en %) pour justifier un changement de voile dans la feuille de route.
 sail_change_min_gain_pct = 1.0
 # Tolérance de simplification des waypoints (milles nautiques d'écart latéral).

@@ -7,7 +7,7 @@
 <title>Routeur Rhum · Ultim</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230a1017'/%3E%3Cpath d='M16 5v19M16 5l9 17H16' stroke='%234cc3d9' stroke-width='2.5' fill='none'/%3E%3Cpath d='M6 26h20' stroke='%23e8eef4' stroke-width='2.5'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="style.css?v=ens1">
+<link rel="stylesheet" href="style.css?v=garde1">
 </head>
 <body>
 <header class="top">
@@ -37,7 +37,7 @@
   <section id="tab-bord" class="tab active" aria-label="Tableau de bord">
     <section class="arrive" id="arrive"></section>
     <div class="choice" hidden role="group" aria-label="Route affichée"><button data-c="safe">Route conseillée</button><button data-c="gfs">Route GFS seule</button></div>
-    <p class="choice-cap" id="choice-cap"></p>
+    <p class="choice-cap verdict" role="status"></p>
     <section class="todos" id="todo"></section>
     <section class="block order" id="next-wp"></section>
     <section class="block slim" id="next-sail"></section>
@@ -78,6 +78,7 @@
     <h2 class="page-h">Ordres à programmer</h2>
     <p class="lede">Touche une position pour la copier, puis colle-la dans le programmateur du jeu.</p>
     <div class="choice" hidden role="group" aria-label="Route affichée"><button data-c="safe">Route conseillée</button><button data-c="gfs">Route GFS seule</button></div>
+    <p class="choice-cap verdict"></p>
     <div class="tools">
       <label class="field">Format des positions
         <select id="fmt">
@@ -195,6 +196,6 @@
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="app.js?v=ens1"></script>
+<script src="app.js?v=garde1"></script>
 </body>
 </html>
