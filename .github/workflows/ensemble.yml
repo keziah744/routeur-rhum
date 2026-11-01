@@ -66,6 +66,12 @@ jobs:
           path: data/gefs
           key: gefs-${{ github.run_id }}
           restore-keys: gefs-
+      # Vent du jeu (GFS) : sans lui, pas de 6 premières heures dans le GFS ni de contrôle des ordres conseillés.
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/gfs
+          key: gfs-${{ github.run_id }}
+          restore-keys: gfs-
       - id: before
         run: echo "gefs=$(sha1sum data/gefs/current.json 2>/dev/null | cut -c1-40)" >> "$GITHUB_OUTPUT"
 
