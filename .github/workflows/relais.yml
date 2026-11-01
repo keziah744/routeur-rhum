@@ -22,14 +22,16 @@ jobs:
     outputs:
       new: ${{ steps.poll.outputs.new }}
     steps:
-      # Fenêtres de 10 min : un réveil manqué ou en retard est rattrapé au suivant ; un double lancement ne
-      # coûte qu'un calcul « rien de nouveau » d'une minute.
-      - name: Réveil de la route (h:05) et des scénarios (h:35)
+      # Route toutes les 15 min (h:05, h:20, h:50 ; h:35 laissé aux scénarios) : un nouveau run GFS est pris dès
+      # qu'il est complet, au lieu d'attendre jusqu'à 1 h. Sans météo ni position nouvelles, un calcul ne coûte
+      # qu'une minute. Fenêtres de 5 min (un réveil toutes les 5 min) ; scénarios : fenêtre de 10 min.
+      - name: Réveil de la route (toutes les 15 min) et des scénarios (h:35)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           m=$((10#$(date -u +%M)))
-          if [ "$m" -ge 5 ] && [ "$m" -lt 15 ]; then gh workflow run route.yml --repo "$GITHUB_REPOSITORY" && echo "Route lancée."; fi
+          q=$((m % 15))
+          if [ "$q" -ge 5 ] && [ "$q" -lt 10 ] && { [ "$m" -lt 35 ] || [ "$m" -ge 45 ]; }; then gh workflow run route.yml --repo "$GITHUB_REPOSITORY" && echo "Route lancée."; fi
           if [ "$m" -ge 35 ] && [ "$m" -lt 45 ]; then gh workflow run ensemble.yml --repo "$GITHUB_REPOSITORY" && echo "Scénarios lancés."; fi
           true
       - uses: actions/checkout@v4

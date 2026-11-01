@@ -48,7 +48,7 @@ Tests : `.venv\Scripts\python.exe -m pytest -q` (vents synthétiques, chaîne m�
 
 Le dépôt fait tourner le routeur dans le cloud, sans le PC :
 
-- `.github/workflows/route.yml` : toutes les heures (h:05), nouvelle météo GFS -> nouvelle route, explication, page publiée.
+- `.github/workflows/route.yml` : toutes les 15 min (lancé par le relais), nouvelle météo GFS -> nouvelle route, explication, page publiée.
 - `.github/workflows/ensemble.yml` : toutes les heures (h:35), nouveau cycle GEFS ou nouvelle route -> 31 scénarios.
 - `.github/workflows/relais.yml` : toutes les 5 min, positions envoyées depuis la page (sans compte) -> route recalculée.
 - `.github/workflows/position.yml` : formulaire « Run workflow » pour saisir la position (secours, compte GitHub).
