@@ -62,7 +62,7 @@ def main(argv=None) -> int:
     po.add_argument("--lat", required=True, help="ex. « 46°12,5 N » ou 46.2083")
     po.add_argument("--lon", required=True, help="ex. « 23°40,1 W » ou -23.668")
     po.add_argument("--voile", default="", help="voile actuelle (Jib, Spi, Code0…), facultatif")
-    po.add_argument("--porte", type=int, default=1, help="prochaine marque (1 = Tête à l'Anglais)")
+    po.add_argument("--porte", type=int, default=0, help="index de la prochaine marque (0 = Tête à l'Anglais)")
     sub.add_parser("expliquer")
     sub.add_parser("relais")
     e = sub.add_parser("ensemble")

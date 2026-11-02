@@ -93,7 +93,8 @@ jobs:
           BATEAU: ${{ inputs.bateau }}
         run: |
           voile="$VOILE"; [ "$voile" = "je ne sais pas" ] && voile=""
-          python -m routeur --bateau "$BATEAU" position --lat "$LAT" --lon "$LON" --voile "$voile" --porte "${PORTE%% *}"
+          # Marques numérotées à partir de 1 dans la liste, à partir de 0 pour le routeur (comme la page).
+          python -m routeur --bateau "$BATEAU" position --lat "$LAT" --lon "$LON" --voile "$voile" --porte "$(( ${PORTE%% *} - 1 ))"
 
       - run: find data/gfs -name '*.grb2' -delete || true
       - if: always()
