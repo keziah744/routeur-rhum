@@ -467,6 +467,11 @@ class Service:
                     report[b["id"]] = "pas encore de route GFS"
                     continue
                 stale = not ens.exists() or ens.stat().st_mtime < route.stat().st_mtime
+                if not stale:
+                    # Un calcul lancé avant l'arrivée d'une position peut finir après elle : son fichier est
+                    # plus récent que la route mais part d'ailleurs. Seuls le départ et le cycle GFS font foi.
+                    e, r = read_json(ens) or {}, read_json(route) or {}
+                    stale = (e.get("start_time"), e.get("gfs_cycle")) != (r.get("start_time"), r.get("gfs_cycle"))
                 if not (force or upd.get("changed") or stale):
                     report[b["id"]] = "inchangé"
                     continue
