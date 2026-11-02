@@ -88,8 +88,9 @@ max_hour = 384
 min_usable_hour = 384
 request_pause_s = 0.4
 keep_cycles = 2
-# Routage des scénarios, plus grossier que la route principale (31 calculs à faire).
-time_steps = [[24, 1.0], [400, 2.0]]
+# Routage des scénarios, plus grossier que la route principale (31 calculs à faire), sauf les 6 premières
+# heures : même pas que la route GFS, pour l'heure exacte des ordres à programmer et une comparaison à égalité.
+time_steps = [[6, 0.25], [24, 1.0], [400, 2.0]]
 twa_step_deg = 5
 sector_nm = 8.0
 # Horizon d'engagement : chaque route candidate est suivie ce temps-là dans chaque scénario, puis on suppose
