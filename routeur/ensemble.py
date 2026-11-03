@@ -154,8 +154,11 @@ class Follower:
     est dans la zone morte (près ou vent arrière). Pénalités, voile auto et énergie comme le moteur.
     Chaque bateau a sa propre horloge : en atteignant un waypoint, le reste du pas sert au leg suivant."""
 
-    def __init__(self, polar: Polar, margin_deg: float = 12.0, dt_s: float = 600.0, energy: float = 100.0):
+    def __init__(self, polar: Polar, margin_deg: float = 12.0, dt_s: float = 600.0, energy: float = 100.0,
+                 twa: float = 0.0, sail: int = -1):
         self.p, self.margin, self.dt, self.energy = polar, margin_deg, dt_s, energy
+        # Amure (signe de la TWA) et voile du bateau au départ ; 0 / -1 = inconnues, premier changement gratuit.
+        self.tack0, self.sail0 = float(np.sign(twa)), int(sail)
         g = np.arange(0, 70.5, 0.5)
         a = np.arange(25.0, 180.1, 1.0)
         A, G = np.meshgrid(a, g, indexing="ij")
@@ -175,8 +178,8 @@ class Follower:
         lon = np.full(S, float(wps[0, 1]))
         tb = np.full(S, float(t0))          # horloge de chaque bateau
         k = np.ones(S, int)
-        sail = np.full(S, -1)
-        tack = np.zeros(S)
+        sail = np.full(S, self.sail0)
+        tack = np.full(S, self.tack0)
         energy = np.full(S, float(self.energy))
         eta = np.full(S, np.inf)
         live = np.ones(S, bool)
@@ -285,6 +288,8 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
     # Énergie du skipper au départ de la route GFS (saisie avec la position), pas 100 % à chaque calcul.
     energy0 = float(main.get("start_energy", params.stamina_start_pct))
     params.stamina_start_pct = fine.stamina_start_pct = energy0
+    # Amure et voile lues dans le jeu : chaque scénario part du bateau réel (empannage payé s'il en faut un).
+    twa0, sail0 = float(main.get("start_twa", 0.0)), int(main.get("start_sail", -1))
     fine.iso_every_h = 1e9
     names = sorted(members)
     cands, results = [], {}
@@ -308,7 +313,8 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
         # Réglages grossiers d'abord ; si le front se bloque, second essai avec les réglages fins de la route GFS.
         for attempt, prm in enumerate((params, fine)):
             try:
-                res = Router(w, polar, mask, leg, prm).run(start_time=t0, start=start, start_gate=gate0)
+                res = Router(w, polar, mask, leg, prm).run(start_time=t0, start=start, start_gate=gate0,
+                                                           start_sail=sail0, start_twa=twa0)
                 break
             except RuntimeError as exc:
                 log.warning("scénario %s, essai %d : pas de route (%s)", m, attempt + 1, exc)
@@ -329,7 +335,7 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
     # Seuls les scénarios où une route optimale existe servent d'arbitres.
     judges = [m for m in names if m in results]
     wind = StackedWind.load([members[m] for m in judges])
-    fol = Follower(polar, energy=energy0)
+    fol = Follower(polar, energy=energy0, twa=twa0, sail=sail0)
     commit_h = cfg["ensemble"].get("commit_h", 48.0)
     ref = [results[m][0] for m in judges]
     r_lat = [np.array([q.lat for q in r.points]) for r in ref]

@@ -60,6 +60,17 @@ def test_waypoint_remainder_is_not_wasted(polar):
     assert f.run(dense, w, T0, 48)[0] == pytest.approx(f.run(one, w, T0, 48)[0], abs=120)
 
 
+def test_start_tack_is_paid(polar):
+    # Waypoint tribord amures : un bateau parti bâbord (amure du jeu) paie l'empannage, pas celui déjà tribord.
+    wps = np.array([[45.0, -20.0], [45.0, -21.0]])
+    w = stacked((0, 16))
+    free = Follower(polar, energy=14).run(wps, w, T0, 48)[0]
+    same = Follower(polar, energy=14, twa=125).run(wps, w, T0, 48)[0]
+    other = Follower(polar, energy=14, twa=-125).run(wps, w, T0, 48)[0]
+    assert same == pytest.approx(free, abs=1)
+    assert other > same + 20
+
+
 def test_scenarios_are_independent(polar):
     # Même route, trois vents : travers rapide, près, vent faible. Les ETA doivent être ordonnées.
     wps = np.array([[45.0, -20.0], [45.0, -21.5]])

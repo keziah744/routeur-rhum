@@ -332,6 +332,8 @@ class Service:
                 "gfs_run": iso(wind.run) if wind.run else None, "wind_file": str(wind_path),
                 "start_source": st["source"], "start": {"lat": st["lat"], "lon": st["lon"]},
                 "start_energy": params.stamina_start_pct,
+                # Amure et voile du jeu : les scénarios partent du même bateau (03/11, gec00 partait sur l'autre amure).
+                "start_twa": float(st.get("twa", 0.0)), "start_sail": int(st.get("sail", -1)),
                 "start_gate": int(st.get("gate", 0)), "game_switch": switch,
                 "options": self.options, "sail_names": self.polar.sail_names,
                 "gates": [{"name": g.name, "a": g.a, "b": g.b, "cross": g.cross} for g in self.course.gates]}
