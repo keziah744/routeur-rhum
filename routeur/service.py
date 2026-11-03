@@ -271,7 +271,8 @@ class Service:
         pos = read_json(position_file(self.boat))
         route = self.followed_route()
         r_start = datetime.fromisoformat(route["start_time"].replace("Z", "+00:00")).timestamp() if route else None
-        if pos and (r_start is None or pos["time"] > r_start + 60):
+        # Une position saisie après la route l'emporte, même lue dans le jeu un peu avant le départ de celle-ci.
+        if pos and (r_start is None or max(pos["time"], pos.get("entered", 0)) > r_start + 60):
             age_min = (now - pos["time"]) / 60
             when = f"il y a {age_min:.0f} min" if age_min < 90 else f"il y a {age_min / 60:.1f} h"
             return {**pos, "time": max(pos["time"], now - 1800) if age_min <= 30 else pos["time"],

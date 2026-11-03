@@ -148,7 +148,8 @@ def main(argv=None) -> int:
             from .config import resolve
             from .service import write_json
             pos = {"time": paris_time(args.heure) if args.heure.strip() else _time.time(),
-                   "lat": parse_coord(args.lat, True), "lon": parse_coord(args.lon, False), "gate": args.porte}
+                   "lat": parse_coord(args.lat, True), "lon": parse_coord(args.lon, False), "gate": args.porte,
+                   "entered": _time.time()}
             if args.energie.strip():
                 pos["energy"] = min(100.0, max(0.0, float(args.energie.replace("%", "").replace(",", "."))))
             from .service import position_file
