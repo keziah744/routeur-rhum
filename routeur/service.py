@@ -8,6 +8,7 @@ Un verrou de fichier empêche deux calculs simultanés (tâche planifiée + bout
 from __future__ import annotations
 
 import base64
+import dataclasses
 import json
 import logging
 import os
@@ -304,9 +305,23 @@ class Service:
         if st.get("energy") is not None:  # énergie lue dans le jeu (sinon celle de config.toml)
             params.stamina_start_pct = float(st["energy"])
         self.route_status(state="calcul", message=f"Calcul depuis {st['source']}", started_at=iso(time.time()))
-        router = Router(wind, self.polar, self.mask, self.course, params)
-        res = router.run(start_time=st["time"], start=(st["lat"], st["lon"]), start_gate=st.get("gate", 0),
-                         start_sail=st.get("sail", -1), start_twa=st.get("twa", 0.0), progress=progress)
+        # 03/11/2026 : depuis 42,37 N 34,10 W, le front s'est coincé près de la Guadeloupe (« route bloquée ») alors
+        # que le même départ 8 s plus tôt passait. Avant d'abandonner, on réessaie avec un éventail de caps et des
+        # secteurs un peu différents.
+        res = None
+        for k, (twa_step, sector) in enumerate(((params.twa_step_deg, params.sector_nm),
+                                                (params.twa_step_deg + 1, params.sector_nm),
+                                                (params.twa_step_deg, params.sector_nm * 0.75))):
+            prm = dataclasses.replace(params, twa_step_deg=twa_step, sector_nm=sector)
+            try:
+                res = Router(wind, self.polar, self.mask, self.course, prm).run(
+                    start_time=st["time"], start=(st["lat"], st["lon"]), start_gate=st.get("gate", 0),
+                    start_sail=st.get("sail", -1), start_twa=st.get("twa", 0.0), progress=progress)
+                break
+            except RuntimeError as exc:
+                if k == 2 or "route bloquée" not in str(exc):
+                    raise
+                log.warning("[%s] essai %d : %s ; nouvel essai avec d'autres réglages", self.boat, k + 1, exc)
         gate_names = [g.name for g in self.course.gates]
         rm = build_roadmap(res, self.polar, self.mask, gate_names, self.cfg["routing"]["simplify_tolerance_nm"],
                            wind=wind)

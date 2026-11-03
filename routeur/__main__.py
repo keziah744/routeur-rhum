@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -43,6 +44,15 @@ def paris_time(hhmm: str, now: float | None = None) -> float:
     if t > ref + timedelta(minutes=5):
         t -= timedelta(days=1)
     return t.timestamp()
+
+
+def parse_twa(txt: str) -> float:
+    """« 125 tribord » -> 125, « 125 bâbord » ou « -125 » -> -125 (bâbord négatif, comme le routeur)."""
+    t = txt.strip().lower().replace(",", ".")
+    v = float(re.match(r"-?\d+(\.\d+)?", t).group())
+    if not 0 <= abs(v) <= 180:
+        raise ValueError(f"TWA hors de 0 à 180 : {txt}")
+    return -abs(v) if ("b" in t and "trib" not in t) or v < 0 else abs(v)
 
 
 def parse_start(args, svc) -> dict | None:
@@ -81,6 +91,7 @@ def main(argv=None) -> int:
     po.add_argument("--porte", type=int, default=0, help="index de la prochaine marque (0 = Tête à l'Anglais)")
     po.add_argument("--heure", default="", help="heure de Paris où la position a été lue (HH:MM), sinon maintenant")
     po.add_argument("--energie", default="", help="énergie du skipper en %% (jauge du jeu), facultatif")
+    po.add_argument("--twa", default="", help="TWA du jeu : « 125 tribord », « 125 bâbord » ou -125 (bâbord), facultatif")
     sub.add_parser("expliquer")
     sub.add_parser("relais")
     e = sub.add_parser("ensemble")
@@ -156,6 +167,8 @@ def main(argv=None) -> int:
             sail = sail_index(args.voile, svc.polar.sail_names)
             if sail is not None:
                 pos["sail"] = sail
+            if args.twa.strip():  # amure connue : le premier empannage n'est plus gratuit
+                pos["twa"] = parse_twa(args.twa)
             write_json(position_file(svc.boat), pos)
             log.info("[%s] position enregistrée : %.4f, %.4f", svc.boat, pos["lat"], pos["lon"])
             print(json.dumps(svc.cycle(force_route=True, boats=[svc.boat]), indent=1, ensure_ascii=False))

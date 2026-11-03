@@ -26,6 +26,9 @@ on:
       energie:
         description: "Énergie du skipper en % (jauge du jeu), facultatif"
         required: false
+      twa:
+        description: "TWA du jeu, ex. « 125 tribord » ou « 125 bâbord », facultatif"
+        required: false
       porte:
         description: "Prochaine marque à passer"
         type: choice
@@ -99,10 +102,11 @@ jobs:
           BATEAU: ${{ inputs.bateau }}
           HEURE: ${{ inputs.heure }}
           ENERGIE: ${{ inputs.energie }}
+          TWA: ${{ inputs.twa }}
         run: |
           voile="$VOILE"; [ "$voile" = "je ne sais pas" ] && voile=""
           # Marques numérotées à partir de 1 dans la liste, à partir de 0 pour le routeur (comme la page).
-          python -m routeur --bateau "$BATEAU" position --lat "$LAT" --lon "$LON" --voile "$voile" --porte "$(( ${PORTE%% *} - 1 ))" --heure "$HEURE" --energie "$ENERGIE"
+          python -m routeur --bateau "$BATEAU" position --lat "$LAT" --lon "$LON" --voile "$voile" --porte "$(( ${PORTE%% *} - 1 ))" --heure "$HEURE" --energie "$ENERGIE" --twa "$TWA"
 
       - run: find data/gfs -name '*.grb2' -delete || true
       - if: always()
