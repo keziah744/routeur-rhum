@@ -100,3 +100,26 @@ def test_programmed_until_saved(tmp_root):
             ntfy({"bateau": "papa", "action": "programme", "jusqu": 100.0 + 30 * 86400, "t": 100.0}, 100.0, "p2")]
     assert R.relay(CFG, SAILS, lambda url: "\n".join(json.dumps(m) for m in msgs)) == ["papa"]
     assert json.loads((tmp_root / "data/positions/papa.prog.json").read_text())["until"] == 100.0 + 8 * 3600
+
+
+def test_position_of_another_boat_refused(tmp_root, monkeypatch):
+    # 03/11/2026 : la position de papa, envoyée sur le bateau de Keziah, était à 160 milles de la sienne.
+    sent = []
+    monkeypatch.setattr(R.alerts, "send", lambda cfg, boat, title, msg, tag="": sent.append((boat, title)) or True)
+    S.write_json(tmp_root / "data/positions/keziah.json", {"time": 0.0, "lat": 43.61, "lon": -28.87, "gate": 0})
+    far = ntfy({"bateau": "keziah", "lat": 45.928, "lon": -26.969, "t": 8460.0}, 8460.0, "f")
+    assert R.relay(CFG, SAILS, lambda url: json.dumps(far)) == []
+    assert json.loads((tmp_root / "data/positions/keziah.json").read_text())["lat"] == 43.61
+    assert sent == [("keziah", "Position refusée")]
+    # Position atteignable (60 milles en 2,35 h) : acceptée.
+    near = ntfy({"bateau": "keziah", "lat": 43.0, "lon": -29.9, "t": 8460.0}, 8460.0, "n")
+    assert R.relay(CFG, SAILS, lambda url: json.dumps(near)) == ["keziah"]
+    assert json.loads((tmp_root / "data/positions/keziah.json").read_text())["lat"] == 43.0
+
+
+def test_implausible_rules():
+    old = {"time": 0.0, "lat": 45.0, "lon": -30.0}
+    assert R.implausible(None, {"time": 10.0, "lat": 50.0, "lon": -10.0}) is None
+    assert R.implausible(old, {"time": 600.0, "lat": 45.2, "lon": -30.0}) is None   # 12 milles en 10 min : marge
+    assert "impossible" in R.implausible(old, {"time": 3600.0, "lat": 46.5, "lon": -30.0})  # 90 milles en 1 h
+    assert "ancienne" in R.implausible(old, {"time": -60.0, "lat": 45.0, "lon": -30.0})

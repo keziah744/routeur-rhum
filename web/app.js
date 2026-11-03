@@ -767,6 +767,7 @@ function setBoat(id, reload = true) {
   document.querySelectorAll("[data-file]").forEach((a) => (a.href = bpath(a.dataset.file)));
   document.title = state.boats.length > 1 ? `Routeur Rhum · ${boatName()}` : "Routeur Rhum · Ultim";
   $("#relay-boat").textContent = boatName();
+  $("#relay-form button[type=submit]").textContent = state.boats.length > 1 ? `Envoyer la position de ${boatName()}` : "Envoyer ma position";
   $("#alerts-boat").textContent = boatName();
   $("#alerts-topic").textContent = state.topic ? `${state.topic}-${id}` : "";
   $("#alerts").hidden = !state.topic;
@@ -807,6 +808,15 @@ async function sendPosition(e) {
   const msg = $("#relay-msg");
   if (Number.isNaN(lat) || Number.isNaN(lon)) { msg.textContent = "Latitude ou longitude illisible."; return; }
   if (lat < 5 || lat > 55 || lon < -70 || lon > 5) { msg.textContent = "Cette position est hors du parcours : vérifie N/S et E/W."; return; }
+  // Même règle que le routeur (relay.MAX_KT, SLACK_NM) : trop loin de la dernière position = sans doute un autre bateau.
+  const lp = state.main?.last_position;
+  if (lp) {
+    const d = hav(lp.lat, lp.lon, lat, lon), dtH = (Date.now() - ts(lp.time)) / 3600e3;
+    if (d > 50 * Math.max(0, dtH) + 20) {
+      msg.textContent = `Cette position est à ${Math.round(d)} milles de la dernière position de ${boatName()} (${fmtT(lp.time)}) : impossible à la voile. Vérifie le bateau choisi en haut de la page.`;
+      return;
+    }
+  }
   // TWA : degrés (0 à 180) + bâbord/tribord, envoyée signée au routeur (bâbord = négative).
   let twa = "";
   const deg = f.twa.value.trim().replace(",", ".");

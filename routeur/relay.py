@@ -14,7 +14,9 @@ import re
 import urllib.error
 import urllib.request
 
+from . import alerts
 from .config import resolve
+from .geo import haversine_nm
 from .service import (OPTION_KEYS, boat_options, boats_of, options_file, position_file, prog_file, read_json,
                       write_json)
 
@@ -22,6 +24,11 @@ log = logging.getLogger("routeur.relais")
 
 NTFY = "https://ntfy.sh"
 MAX_SKEW_S = 900   # écart toléré entre l'heure d'envoi écrite par la page et l'heure de réception ntfy
+# Déplacement impossible depuis la dernière position : plus de MAX_KT nœuds (Ultim : 43,6 kt au plus dans la
+# polaire), plus SLACK_NM de marge (position lue un peu avant l'envoi). 03/11/2026 : la position de papa, envoyée
+# depuis la page sur le bateau de Keziah, l'a placée 160 milles plus loin, et sa route est repartie de là.
+MAX_KT = 50.0
+SLACK_NM = 20.0
 # Noms français acceptés en plus des noms du jeu (« Jib », « Light Jib », « Code 0 »…).
 SAIL_FR = {"foc": "Jib", "spi": "Spi", "trinquette": "Staysail", "foc léger": "LightJib", "code 0": "Code0",
            "gennaker lourd": "HeavyGnk", "gennaker léger": "LightGnk"}
@@ -140,6 +147,19 @@ def parse_message(msg: dict, cfg: dict, sail_names: list[str]) -> dict | None:
     return pos
 
 
+def implausible(old: dict | None, new: dict) -> str | None:
+    """Pourquoi `new` ne peut pas suivre la dernière position connue `old` (None si elle le peut)."""
+    if not old or "lat" not in old or "time" not in old:
+        return None
+    dt_h = (new["time"] - old["time"]) / 3600
+    if dt_h < 0:
+        return "plus ancienne que la dernière position"
+    d = haversine_nm(old["lat"], old["lon"], new["lat"], new["lon"])
+    if d > MAX_KT * dt_h + SLACK_NM:
+        return f"à {d:.0f} milles de la dernière position, envoyée {dt_h:.1f} h plus tôt : impossible à la voile"
+    return None
+
+
 def relay(cfg: dict, sail_names: list[str], get=http_get) -> list[str]:
     """Relève les messages : data/positions/<bateau>.json (position) et <bateau>.options.json (options).
     Renvoie les bateaux à recalculer."""
@@ -168,7 +188,15 @@ def relay(cfg: dict, sail_names: list[str], get=http_get) -> list[str]:
             log.info("[%s] recalcul demandé depuis la page", pos["boat"])
         elif pos and (pos["boat"] not in latest or pos["time"] >= latest[pos["boat"]]["time"]):
             latest[pos["boat"]] = pos
-    for boat, pos in latest.items():
+    for boat, pos in list(latest.items()):
+        why = implausible(read_json(position_file(boat)), pos)
+        if why:  # sans doute la position d'un autre bateau : la route garde l'ancienne
+            del latest[boat]
+            log.warning("[%s] position %.4f, %.4f refusée : %s", boat, pos["lat"], pos["lon"], why)
+            alerts.send(cfg, boat, "Position refusée",
+                        f"La position envoyée depuis la page ({pos['lat']:.2f}, {pos['lon']:.2f}) est {why}. "
+                        "Vérifie le bateau choisi en haut de la page, puis renvoie-la.", tag="warning")
+            continue
         write_json(position_file(boat), {k: v for k, v in pos.items() if k != "boat"})
         log.info("[%s] nouvelle position reçue : %.4f, %.4f", boat, pos["lat"], pos["lon"])
     for boat, o in options.items():
