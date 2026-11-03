@@ -154,8 +154,8 @@ class Follower:
     est dans la zone morte (près ou vent arrière). Pénalités, voile auto et énergie comme le moteur.
     Chaque bateau a sa propre horloge : en atteignant un waypoint, le reste du pas sert au leg suivant."""
 
-    def __init__(self, polar: Polar, margin_deg: float = 12.0, dt_s: float = 600.0):
-        self.p, self.margin, self.dt = polar, margin_deg, dt_s
+    def __init__(self, polar: Polar, margin_deg: float = 12.0, dt_s: float = 600.0, energy: float = 100.0):
+        self.p, self.margin, self.dt, self.energy = polar, margin_deg, dt_s, energy
         g = np.arange(0, 70.5, 0.5)
         a = np.arange(25.0, 180.1, 1.0)
         A, G = np.meshgrid(a, g, indexing="ij")
@@ -177,7 +177,7 @@ class Follower:
         k = np.ones(S, int)
         sail = np.full(S, -1)
         tack = np.zeros(S)
-        energy = np.full(S, 100.0)
+        energy = np.full(S, float(self.energy))
         eta = np.full(S, np.inf)
         live = np.ones(S, bool)
         thr = max(p.auto_tolerance, 1.01)
@@ -282,6 +282,9 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
                  course.forbidden_geojson, course.fine_tiles, course.raw)
     params = coarse_params(cfg)
     fine = RoutingParams.from_config(cfg)
+    # Énergie du skipper au départ de la route GFS (saisie avec la position), pas 100 % à chaque calcul.
+    energy0 = float(main.get("start_energy", params.stamina_start_pct))
+    params.stamina_start_pct = fine.stamina_start_pct = energy0
     fine.iso_every_h = 1e9
     names = sorted(members)
     cands, results = [], {}
@@ -326,7 +329,7 @@ def run_ensemble(svc, members: dict[str, str], gefs_cycle: str, progress=None) -
     # Seuls les scénarios où une route optimale existe servent d'arbitres.
     judges = [m for m in names if m in results]
     wind = StackedWind.load([members[m] for m in judges])
-    fol = Follower(polar)
+    fol = Follower(polar, energy=energy0)
     commit_h = cfg["ensemble"].get("commit_h", 48.0)
     ref = [results[m][0] for m in judges]
     r_lat = [np.array([q.lat for q in r.points]) for r in ref]

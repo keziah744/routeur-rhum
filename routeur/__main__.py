@@ -29,6 +29,22 @@ TASK_NAME = "RouteurRhum-cycle"
 from .relay import parse_coord, sail_index  # noqa: E402,F401  (réexporté pour les tests)
 
 
+def paris_time(hhmm: str, now: float | None = None) -> float:
+    """« 09:34 » (heure de Paris, celle du jeu) -> epoch UTC : la dernière fois qu'il a été cette heure-là."""
+    from datetime import timedelta
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("Europe/Paris")
+    except Exception:  # Windows sans tzdata : heure d'hiver, celle de la course
+        tz = timezone(timedelta(hours=1))
+    h, m = (int(x) for x in hhmm.strip().replace("h", ":").split(":"))
+    ref = datetime.fromtimestamp(now, timezone.utc) if now else datetime.now(timezone.utc)
+    t = ref.astimezone(tz).replace(hour=h, minute=m, second=0, microsecond=0)
+    if t > ref + timedelta(minutes=5):
+        t -= timedelta(days=1)
+    return t.timestamp()
+
+
 def parse_start(args, svc) -> dict | None:
     if not (args.depart or args.position):
         return None
@@ -63,6 +79,8 @@ def main(argv=None) -> int:
     po.add_argument("--lon", required=True, help="ex. « 23°40,1 W » ou -23.668")
     po.add_argument("--voile", default="", help="voile actuelle (Jib, Spi, Code0…), facultatif")
     po.add_argument("--porte", type=int, default=0, help="index de la prochaine marque (0 = Tête à l'Anglais)")
+    po.add_argument("--heure", default="", help="heure de Paris où la position a été lue (HH:MM), sinon maintenant")
+    po.add_argument("--energie", default="", help="énergie du skipper en %% (jauge du jeu), facultatif")
     sub.add_parser("expliquer")
     sub.add_parser("relais")
     e = sub.add_parser("ensemble")
@@ -129,8 +147,10 @@ def main(argv=None) -> int:
             import time as _time
             from .config import resolve
             from .service import write_json
-            pos = {"time": _time.time(), "lat": parse_coord(args.lat, True), "lon": parse_coord(args.lon, False),
-                   "gate": args.porte}
+            pos = {"time": paris_time(args.heure) if args.heure.strip() else _time.time(),
+                   "lat": parse_coord(args.lat, True), "lon": parse_coord(args.lon, False), "gate": args.porte}
+            if args.energie.strip():
+                pos["energy"] = min(100.0, max(0.0, float(args.energie.replace("%", "").replace(",", "."))))
             from .service import position_file
             sail = sail_index(args.voile, svc.polar.sail_names)
             if sail is not None:

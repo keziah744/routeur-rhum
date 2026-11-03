@@ -280,7 +280,8 @@ class Service:
         if est:
             last = (f"dernière position il y a {(now - pos['time']) / 3600:.1f} h" if pos
                     else "aucune position saisie")
-            return {**est, "source": f"estimée sur la route suivie ({last})"}
+            kept = {"energy": pos["energy"]} if pos and "energy" in pos else {}
+            return {**est, **kept, "source": f"estimée sur la route suivie ({last})"}
         if pos:
             return {**pos, "source": "position saisie (route précédente terminée)"}
         return {"time": now, "lat": self.course.start_lat, "lon": self.course.start_lon, "gate": 0,
@@ -299,6 +300,8 @@ class Service:
             wind, switch = self.game_wind(wind, cur)
         st = self.start_state(override=start)
         params = RoutingParams.from_config(self.cfg)
+        if st.get("energy") is not None:  # énergie lue dans le jeu (sinon celle de config.toml)
+            params.stamina_start_pct = float(st["energy"])
         self.route_status(state="calcul", message=f"Calcul depuis {st['source']}", started_at=iso(time.time()))
         router = Router(wind, self.polar, self.mask, self.course, params)
         res = router.run(start_time=st["time"], start=(st["lat"], st["lon"]), start_gate=st.get("gate", 0),
@@ -312,6 +315,7 @@ class Service:
                 "gfs_cycle": (cur or {}).get("cycle") if not start or wind_path == (cur or {}).get("path") else None,
                 "gfs_run": iso(wind.run) if wind.run else None, "wind_file": str(wind_path),
                 "start_source": st["source"], "start": {"lat": st["lat"], "lon": st["lon"]},
+                "start_energy": params.stamina_start_pct,
                 "start_gate": int(st.get("gate", 0)), "game_switch": switch,
                 "options": self.options, "sail_names": self.polar.sail_names,
                 "gates": [{"name": g.name, "a": g.a, "b": g.b, "cross": g.cross} for g in self.course.gates]}

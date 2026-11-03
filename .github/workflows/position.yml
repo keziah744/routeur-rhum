@@ -20,6 +20,12 @@ on:
         type: choice
         default: "je ne sais pas"
         options: ["je ne sais pas", "Foc", "Spi", "Trinquette", "Foc léger", "Code 0", "Gennaker lourd", "Gennaker léger"]
+      heure:
+        description: "Heure de la position dans le jeu, heure de Paris (ex. 09:34) ; vide = maintenant"
+        required: false
+      energie:
+        description: "Énergie du skipper en % (jauge du jeu), facultatif"
+        required: false
       porte:
         description: "Prochaine marque à passer"
         type: choice
@@ -91,10 +97,12 @@ jobs:
           VOILE: ${{ inputs.voile }}
           PORTE: ${{ inputs.porte }}
           BATEAU: ${{ inputs.bateau }}
+          HEURE: ${{ inputs.heure }}
+          ENERGIE: ${{ inputs.energie }}
         run: |
           voile="$VOILE"; [ "$voile" = "je ne sais pas" ] && voile=""
           # Marques numérotées à partir de 1 dans la liste, à partir de 0 pour le routeur (comme la page).
-          python -m routeur --bateau "$BATEAU" position --lat "$LAT" --lon "$LON" --voile "$voile" --porte "$(( ${PORTE%% *} - 1 ))"
+          python -m routeur --bateau "$BATEAU" position --lat "$LAT" --lon "$LON" --voile "$voile" --porte "$(( ${PORTE%% *} - 1 ))" --heure "$HEURE" --energie "$ENERGIE"
 
       - run: find data/gfs -name '*.grb2' -delete || true
       - if: always()
