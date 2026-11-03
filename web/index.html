@@ -130,6 +130,7 @@
           </div>
           <p class="help">Le TWA, c'est l'angle entre le vent et l'avant du bateau, de 0 à 180°. <b>Bâbord</b> : le vent arrive par la gauche du bateau. <b>Tribord</b> : par la droite.</p>
         </fieldset>
+        <label>Énergie du skipper (%)<input name="energy" inputmode="numeric" placeholder="14" maxlength="3" aria-label="Énergie du skipper en %, la jauge du jeu"></label>
         <label>Prochaine marque<select name="gate"></select></label>
         <button class="btn" type="submit">Envoyer ma position</button>
         <p class="msg" id="relay-msg" role="status"></p>
@@ -196,6 +197,6 @@
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="app.js?v=bateau1"></script>
+<script src="app.js?v=energie1"></script>
 </body>
 </html>

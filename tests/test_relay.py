@@ -34,6 +34,14 @@ def test_position_accepted_without_code():
     assert pos["boat"] == "papa" and pos["gate"] == 2 and pos["sail"] == SAILS.index("Code0")
     assert pos["lat"] == pytest.approx(46.2083, abs=1e-4) and pos["lon"] == pytest.approx(-23.6683, abs=1e-4)
     assert pos["twa"] == -125 and pos["time"] == 1000.0
+    assert "energy" not in pos
+
+
+def test_energy_from_page():
+    body = {"bateau": "keziah", "lat": 42.345, "lon": -34.299, "twa": "-137", "energie": "14", "t": 1000.0}
+    assert R.parse_message(ntfy(body, 1000.0), CFG, SAILS)["energy"] == 14.0
+    assert R.parse_message(ntfy({**body, "energie": "14 %"}, 1000.0), CFG, SAILS)["energy"] == 14.0
+    assert "energy" not in R.parse_message(ntfy({**body, "energie": "beaucoup"}, 1000.0), CFG, SAILS)
 
 
 def test_old_signed_message_still_read():

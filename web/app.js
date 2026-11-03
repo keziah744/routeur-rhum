@@ -826,11 +826,16 @@ async function sendPosition(e) {
     if (!f.side.value && v > 0 && v < 180) { msg.textContent = "Pour le TWA, choisis bâbord ou tribord."; return; }
     twa = String(f.side.value === "-1" ? -v : v);
   }
-  const ok = await sendRelay({ lat, lon, voile: f.sail.value, porte: +f.gate.value, twa },
+  // Énergie : la jauge du jeu (0 à 100). Vide = le routeur garde celle de config.toml.
+  const energie = f.energy.value.trim().replace(",", ".").replace("%", "").trim();
+  if (energie && (Number.isNaN(Number(energie)) || +energie < 0 || +energie > 100)) {
+    msg.textContent = "Énergie illisible : un nombre de 0 à 100."; f.energy.focus(); return;
+  }
+  const ok = await sendRelay({ lat, lon, voile: f.sail.value, porte: +f.gate.value, twa, energie },
     f.querySelector("button[type=submit]"), msg, "Position envoyée");
   if (!ok) return;
   msg.textContent = `Position ${latS(lat)} ${lonS(lon)} envoyée. ${SOON}`;
-  f.lat.value = ""; f.lon.value = ""; f.twa.value = ""; f.querySelectorAll("[name=side]").forEach((r) => (r.checked = false));
+  f.lat.value = ""; f.lon.value = ""; f.twa.value = ""; f.energy.value = ""; f.querySelectorAll("[name=side]").forEach((r) => (r.checked = false));
   relayPreview();
 }
 // « -125 » tapé ou collé : 125 bâbord.

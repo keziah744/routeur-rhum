@@ -144,6 +144,12 @@ def parse_message(msg: dict, cfg: dict, sail_names: list[str]) -> dict | None:
             pos["twa"] = float(str(body["twa"]).replace(",", "."))
         except ValueError:
             pass
+    # Énergie de la jauge du jeu : sans elle, le calcul repartait de celle de config.toml (100 %).
+    if str(body.get("energie", "")).strip():
+        try:
+            pos["energy"] = min(100.0, max(0.0, float(str(body["energie"]).replace("%", "").replace(",", "."))))
+        except ValueError:
+            pass
     return pos
 
 
